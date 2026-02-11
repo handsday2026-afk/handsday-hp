@@ -97,13 +97,13 @@ export default function WorksPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2, duration: 0.8 }}
-                    className="mt-10 inline-flex p-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 shadow-xl"
+                    className="mt-10 inline-flex max-w-[95vw] overflow-x-auto hide-scrollbar p-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 shadow-xl"
                 >
                     <ToggleGroup
                         type="single"
                         value={filter}
                         onValueChange={(value) => value && setFilter(value)}
-                        className="gap-1.5"
+                        className="gap-1.5 min-w-max"
                     >
                         {[
                             { value: 'all', label: 'All' },
@@ -115,7 +115,7 @@ export default function WorksPage() {
                                 key={item.value}
                                 value={item.value}
                                 className={cn(
-                                    "px-6 py-2.5 rounded-full text-[11px] uppercase tracking-[2px] font-medium transition-all duration-300 cursor-pointer",
+                                    "px-4 md:px-6 py-2.5 rounded-full text-[10px] md:text-[11px] uppercase tracking-[2px] font-medium transition-all duration-300 cursor-pointer whitespace-nowrap",
                                     "text-white/40 hover:text-white hover:bg-white/5",
                                     "data-[state=on]:bg-white data-[state=on]:text-charcoal data-[state=on]:shadow-md data-[state=on]:font-bold"
                                 )}
