@@ -1,0 +1,281 @@
+@import "tailwindcss";
+
+@theme {
+    --color-charcoal: #2C2C2C;
+    --color-bone: #F9F9F9;
+    --color-gold: #D4AF37;
+    --color-warm-gray: #888888;
+    --font-display: 'Playfair Display', serif;
+    --font-body: 'Montserrat', sans-serif;
+}
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--color-bone);
+    color: var(--color-charcoal);
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+.nav-link {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 400;
+    transition: all 0.3s ease;
+}
+
+/* ===== Infinite Slider Component ===== */
+.parallax-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: #111;
+    z-index: 1;
+}
+
+.project-list {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.project {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.project img {
+    position: absolute;
+    top: -25%;
+    left: 0;
+    width: 100%;
+    height: 150%;
+    object-fit: cover;
+    filter: brightness(0.65);
+}
+
+/* ===== 하단 중앙 정보 패널 (슬라이딩 동기화) ===== */
+.hero-info-panel {
+    position: absolute;
+    bottom: 6%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(900px, 85vw);
+    z-index: 20;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    overflow: hidden;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.hero-info-panel:hover {
+    background: rgba(255, 255, 255, 1);
+}
+
+.hero-info-inner {
+    display: flex;
+    width: 100%;
+    height: 180px;
+}
+
+/* 좌측 텍스트 정보 (슬라이딩) */
+.hero-info-text {
+    position: relative;
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+}
+
+.hero-info-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 180px;
+    display: flex;
+    align-items: stretch;
+    padding: 28px 36px;
+    gap: 28px;
+}
+
+.hero-info-number {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1;
+    flex-shrink: 0;
+    padding-top: 2px;
+    transition: color 0.3s ease;
+}
+
+.hero-info-panel:hover .hero-info-number {
+    color: #D4AF37;
+}
+
+.hero-info-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.hero-info-title {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #1a1a1a;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.3s ease;
+}
+
+.hero-info-panel:hover .hero-info-title {
+    color: #D4AF37;
+}
+
+.hero-info-meta {
+    display: flex;
+    gap: 20px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #888;
+    font-weight: 500;
+}
+
+.hero-info-desc {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #666;
+    font-weight: 400;
+    margin: 0;
+}
+
+/* 우측 썸네일 (슬라이딩) */
+.hero-info-thumb {
+    position: relative;
+    width: 220px;
+    height: 100%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.hero-thumb-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 180px;
+    overflow: hidden;
+}
+
+.hero-thumb-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 인디케이터 도트 */
+.hero-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 0;
+    background: rgba(245, 245, 245, 0.8);
+}
+
+.hero-indicator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ccc;
+    transition: all 0.3s ease;
+}
+
+.hero-indicator-dot.active {
+    background: #D4AF37;
+    width: 20px;
+    border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+    .hero-info-panel {
+        width: 92vw;
+        bottom: 3%;
+    }
+
+    .hero-info-inner {
+        height: 140px;
+    }
+
+    .hero-info-item {
+        padding: 16px 20px;
+        gap: 16px;
+        height: 140px;
+    }
+
+    .hero-info-number {
+        font-size: 1.5rem;
+    }
+
+    .hero-info-title {
+        font-size: 0.85rem;
+    }
+
+    .hero-info-thumb {
+        width: 120px;
+    }
+
+    .hero-thumb-item {
+        height: 140px;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-info-thumb {
+        display: none;
+    }
+}
+
+/* ===== Page Transitions ===== */
+.page-enter {
+    animation: pageEnter 0.6s ease-out forwards;
+}
+
+@keyframes pageEnter {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
