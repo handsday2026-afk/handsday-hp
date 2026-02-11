@@ -12,10 +12,11 @@ import AdminPage from '@/pages/AdminPage'
 function App() {
     const location = useLocation()
     const isHome = location.pathname === '/'
+    const isTransparent = isHome || location.pathname === '/works'
 
     return (
         <div className="app">
-            <Header transparent={isHome} />
+            <Header transparent={isTransparent} />
             <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/works" element={<WorksPage />} />

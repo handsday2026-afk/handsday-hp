@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getProjects, type Project } from '@/lib/api'
+import { getMediumUrl, getFullUrl } from '@/lib/image-utils'
 import { ArrowLeft, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -21,7 +22,7 @@ export default function CategoryPage() {
 
     const openLightbox = (project: Project, imgIndex: number = 0) => {
         const images = project.images?.length > 0 ? project.images : [project.image]
-        setLightbox({ images, index: imgIndex })
+        setLightbox({ images: images.filter(Boolean).map(getFullUrl), index: imgIndex })
     }
 
     const navLightbox = (dir: number) => {
@@ -49,7 +50,7 @@ export default function CategoryPage() {
                         {projects.map((p) => (
                             <div key={p.id} className="group cursor-pointer" onClick={() => openLightbox(p)}>
                                 <div className="aspect-[4/3] overflow-hidden rounded-sm bg-gray-200">
-                                    <img src={p.image} alt={p.title}
+                                    <img src={getMediumUrl(p.image)} alt={p.title}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                                 </div>
                                 <h3 className="mt-3 font-medium text-sm">{p.title}</h3>

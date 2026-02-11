@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { compressImages } from './image-utils'
 
 // ===== 타입 정의 =====
 export interface Project {
@@ -67,9 +68,12 @@ export async function createProject(
     },
     imageFiles: File[]
 ): Promise<Project> {
-    // 1. 이미지를 Supabase Storage에 업로드
+    // 1. 이미지 업로드 전 압축 (WebP 변환 + 최대 2000px 리사이징)
+    const compressedFiles = await compressImages(imageFiles)
+
+    // 2. 압축된 이미지를 Supabase Storage에 업로드
     const imageUrls: string[] = []
-    for (const file of imageFiles) {
+    for (const file of compressedFiles) {
         const ext = file.name.split('.').pop() || 'jpg'
         const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
@@ -85,10 +89,10 @@ export async function createProject(
         }
     }
 
-    // 2. 대표 이미지 설정
+    // 3. 대표 이미지 설정
     const mainImage = imageUrls[projectData.mainImageIndex] || imageUrls[0] || ''
 
-    // 3. DB에 삽입
+    // 4. DB에 삽입
     const { data, error } = await supabase
         .from('projects')
         .insert({
@@ -133,13 +137,89 @@ export async function deleteProject(id: string): Promise<void> {
     await supabase.from('projects').delete().eq('id', id)
 }
 
-export async function updateProject(id: string, data: Partial<Project>): Promise<Project> {
+export async function updateProject(
+    id: string,
+    data: Partial<Project>,
+    options?: {
+        removedImageUrls?: string[]
+        newImageFiles?: File[]
+        mainImageUrl?: string  // 최종 대표 이미지 URL (기존 또는 새로운 URL)
+    }
+): Promise<Project> {
     const updateData: Record<string, unknown> = {}
     if (data.title !== undefined) updateData.title = data.title
     if (data.category !== undefined) updateData.category = data.category
     if (data.year !== undefined) updateData.year = data.year
     if (data.description !== undefined) updateData.description = data.description
     if (data.isHero !== undefined) updateData.is_hero = data.isHero
+
+    // === 이미지 수정 처리 ===
+    if (options) {
+        // 1. 삭제할 이미지: Supabase Storage에서 제거
+        if (options.removedImageUrls && options.removedImageUrls.length > 0) {
+            const filePaths = options.removedImageUrls
+                .map((url: string) => {
+                    const parts = url.split('/project-images/')
+                    return parts.length > 1 ? parts[parts.length - 1].split('?')[0] : ''
+                })
+                .filter(Boolean)
+
+            if (filePaths.length > 0) {
+                await supabase.storage.from('project-images').remove(filePaths)
+            }
+        }
+
+        // 2. 새 이미지 업로드 (압축 후)
+        const newImageUrls: string[] = []
+        if (options.newImageFiles && options.newImageFiles.length > 0) {
+            const compressedFiles = await compressImages(options.newImageFiles)
+            for (const file of compressedFiles) {
+                const ext = file.name.split('.').pop() || 'webp'
+                const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('project-images')
+                    .upload(fileName, file)
+
+                if (uploadData && !uploadError) {
+                    const { data: urlData } = supabase.storage
+                        .from('project-images')
+                        .getPublicUrl(uploadData.path)
+                    newImageUrls.push(urlData.publicUrl)
+                }
+            }
+        }
+
+        // 3. 현재 프로젝트의 이미지 목록 조회
+        const { data: current } = await supabase
+            .from('projects')
+            .select('images, image')
+            .eq('id', id)
+            .single()
+
+        if (current) {
+            const currentImages: string[] = current.images || []
+            const removedSet = new Set(options.removedImageUrls || [])
+
+            // 남은 이미지 + 새 이미지
+            const finalImages = [
+                ...currentImages.filter((url: string) => !removedSet.has(url)),
+                ...newImageUrls
+            ]
+
+            updateData.images = finalImages
+
+            // 4. 대표 이미지 설정
+            if (options.mainImageUrl) {
+                updateData.image = options.mainImageUrl
+            } else if (removedSet.has(current.image) && finalImages.length > 0) {
+                // 대표 이미지가 삭제된 경우 첫 번째 이미지를 대표로
+                updateData.image = finalImages[0]
+            } else if (finalImages.length === 0) {
+                updateData.image = ''
+            }
+        }
+    }
 
     const { data: result, error } = await supabase
         .from('projects')

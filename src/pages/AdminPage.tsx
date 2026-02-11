@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getProjects, createProject, deleteProject, updateProject, toggleProjectHero, adminLogin, type Project } from '@/lib/api'
-import { Upload, Trash2, LogIn, LogOut, Plus, Layers, ChevronLeft, ChevronRight, Edit3, X, Check, Star, StarOff, Filter } from 'lucide-react'
+import { getAdminThumbUrl } from '@/lib/image-utils'
+import { Upload, Trash2, LogIn, LogOut, Plus, Layers, ChevronLeft, ChevronRight, Edit3, X, Check, Star, StarOff, Filter, ImagePlus } from 'lucide-react'
 
 const PAGE_SIZE = 6
 const CATEGORIES = [
@@ -27,6 +28,11 @@ export default function AdminPage() {
     // Edit mode
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editForm, setEditForm] = useState({ title: '', category: '', year: '', description: '', isHero: false })
+    // 이미지 편집 state
+    const [editImages, setEditImages] = useState<string[]>([])       // 현재 이미지 목록
+    const [editRemovedUrls, setEditRemovedUrls] = useState<string[]>([]) // 삭제 대상
+    const [editNewFiles, setEditNewFiles] = useState<File[]>([])     // 새로 추가할 파일
+    const [editMainImage, setEditMainImage] = useState<string>('')   // 대표 이미지 URL
 
     const [loading, setLoading] = useState(false)
     const [msg, setMsg] = useState('')
@@ -97,18 +103,67 @@ export default function AdminPage() {
             description: p.description || '',
             isHero: !!p.isHero,
         })
+        // 이미지 편집 초기화
+        const imgs = p.images?.length > 0 ? [...p.images] : (p.image ? [p.image] : [])
+        setEditImages(imgs)
+        setEditRemovedUrls([])
+        setEditNewFiles([])
+        setEditMainImage(p.image || (imgs[0] || ''))
     }
 
     const cancelEdit = () => {
         setEditingId(null)
+        setEditRemovedUrls([])
+        setEditNewFiles([])
+    }
+
+    // 편집 중 이미지 삭제
+    const handleEditRemoveImage = (url: string) => {
+        setEditImages(prev => prev.filter(u => u !== url))
+        setEditRemovedUrls(prev => [...prev, url])
+        // 대표 이미지가 삭제되면 남은 첫 번째로 변경
+        if (editMainImage === url) {
+            const remaining = editImages.filter(u => u !== url)
+            setEditMainImage(remaining[0] || '')
+        }
+    }
+
+    // 편집 중 새 이미지 추가
+    const handleEditAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setEditNewFiles(prev => [...prev, ...Array.from(e.target.files!)])
+        }
+    }
+
+    // 편집 중 새 추가 파일 제거
+    const handleEditRemoveNewFile = (index: number) => {
+        setEditNewFiles(prev => prev.filter((_, i) => i !== index))
     }
 
     const saveEdit = async () => {
         if (!editingId) return
-        await updateProject(editingId, editForm)
-        setEditingId(null)
-        setMsg('프로젝트가 수정되었습니다!')
-        loadProjects()
+        setLoading(true)
+        try {
+            const hasImageChanges = editRemovedUrls.length > 0 || editNewFiles.length > 0
+            await updateProject(
+                editingId,
+                editForm,
+                hasImageChanges ? {
+                    removedImageUrls: editRemovedUrls,
+                    newImageFiles: editNewFiles,
+                    mainImageUrl: editMainImage || undefined,
+                } : undefined
+            )
+            setEditingId(null)
+            setEditRemovedUrls([])
+            setEditNewFiles([])
+            setMsg('프로젝트가 수정되었습니다!')
+            loadProjects()
+        } catch {
+            setMsg('수정 중 오류가 발생했습니다.')
+        } finally {
+            setLoading(false)
+        }
     }
 
     // 히어로 토글
@@ -166,7 +221,7 @@ export default function AdminPage() {
                         <div className="space-y-2">
                             {heroProjects.map(p => (
                                 <div key={p.id} className="flex items-center gap-4 bg-white/80 px-4 py-3 rounded-sm">
-                                    <img src={p.image} alt={p.title} className="w-12 h-12 object-cover rounded-sm shrink-0 border border-gray-100" />
+                                    <img src={getAdminThumbUrl(p.image)} alt={p.title} className="w-12 h-12 object-cover rounded-sm shrink-0 border border-gray-100" />
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-medium text-sm truncate">{p.title}</h3>
                                         <div className="text-[10px] text-warm-gray uppercase tracking-widest">
@@ -308,6 +363,59 @@ export default function AdminPage() {
                                     <textarea value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}
                                         rows={2} placeholder="설명"
                                         className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold resize-none" />
+
+                                    {/* === 이미지 관리 섹션 === */}
+                                    <div className="space-y-2">
+                                        <span className="text-[10px] uppercase tracking-widest text-warm-gray font-bold">이미지 관리</span>
+                                        {/* 기존 이미지 목록 */}
+                                        {editImages.length > 0 && (
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {editImages.map((url, i) => (
+                                                    <div key={i} className={`relative group rounded-sm overflow-hidden border-2 ${editMainImage === url ? 'border-gold' : 'border-gray-200'
+                                                        }`}>
+                                                        <img src={url} alt={`이미지 ${i + 1}`} className="w-full aspect-square object-cover" />
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                                                            <button onClick={() => setEditMainImage(url)} title="대표 이미지로 설정"
+                                                                className={`p-1 rounded-full border-none cursor-pointer transition-colors ${editMainImage === url ? 'bg-gold text-white' : 'bg-white/90 text-charcoal hover:bg-gold hover:text-white'
+                                                                    }`}>
+                                                                <Star size={12} />
+                                                            </button>
+                                                            <button onClick={() => handleEditRemoveImage(url)} title="삭제"
+                                                                className="p-1 rounded-full bg-white/90 text-red-500 hover:bg-red-500 hover:text-white border-none cursor-pointer transition-colors">
+                                                                <X size={12} />
+                                                            </button>
+                                                        </div>
+                                                        {editMainImage === url && (
+                                                            <div className="absolute top-0.5 left-0.5 bg-gold text-white text-[8px] px-1 py-0.5 rounded-sm font-bold">대표</div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {/* 새 이미지 추가 */}
+                                        {editNewFiles.length > 0 && (
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {editNewFiles.map((file, i) => (
+                                                    <div key={`new-${i}`} className="relative group rounded-sm overflow-hidden border-2 border-dashed border-green-400">
+                                                        <img src={URL.createObjectURL(file)} alt={`새 이미지 ${i + 1}`} className="w-full aspect-square object-cover" />
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                            <button onClick={() => handleEditRemoveNewFile(i)} title="제거"
+                                                                className="p-1 rounded-full bg-white/90 text-red-500 hover:bg-red-500 hover:text-white border-none cursor-pointer transition-colors">
+                                                                <X size={12} />
+                                                            </button>
+                                                        </div>
+                                                        <div className="absolute top-0.5 left-0.5 bg-green-500 text-white text-[8px] px-1 py-0.5 rounded-sm font-bold">NEW</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <label className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-gray-300 rounded-sm text-xs text-warm-gray hover:border-gold hover:text-gold cursor-pointer transition-colors">
+                                            <ImagePlus size={14} />
+                                            이미지 추가
+                                            <input type="file" multiple accept="image/*" onChange={handleEditAddFiles} className="hidden" />
+                                        </label>
+                                    </div>
+
                                     <div className="flex items-center gap-2">
                                         <input type="checkbox" checked={editForm.isHero} onChange={e => setEditForm({ ...editForm, isHero: e.target.checked })}
                                             className="w-3.5 h-3.5 accent-gold cursor-pointer" />
@@ -333,7 +441,7 @@ export default function AdminPage() {
                                         </div>
                                     )}
                                     <div className="flex gap-4">
-                                        <img src={p.image} alt={p.title} className="w-20 h-20 object-cover rounded-sm shrink-0 border border-gray-100" />
+                                        <img src={getAdminThumbUrl(p.image)} alt={p.title} className="w-20 h-20 object-cover rounded-sm shrink-0 border border-gray-100" />
                                         <div className="flex-1 min-w-0">
                                             <h3 className="font-medium text-sm truncate">{p.title}</h3>
                                             <div className="flex gap-2 items-center text-[10px] text-gold uppercase tracking-widest font-bold mb-1">
