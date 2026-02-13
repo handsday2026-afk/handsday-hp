@@ -14,7 +14,7 @@ function App() {
     const location = useLocation()
     const isHome = location.pathname === '/'
     const isIntro = location.pathname === '/intro'
-    const isTransparent = isHome || location.pathname === '/works'
+    const isTransparent = isHome || location.pathname.startsWith('/works') || location.pathname === '/about' || location.pathname === '/request' || location.pathname === '/contact'
 
     return (
         <div className="app">

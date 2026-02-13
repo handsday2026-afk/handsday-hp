@@ -32,32 +32,37 @@ export default function CategoryPage() {
     }
 
     return (
-        <main className="pt-28 pb-20 px-8 page-enter">
+        <main className="min-h-screen pt-28 pb-20 px-8 bg-charcoal text-white">
             <div className="max-w-6xl mx-auto">
-                <Link to="/works" className="inline-flex items-center gap-2 text-warm-gray hover:text-charcoal text-sm mb-8 transition-colors">
+                <Link to="/works" className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm mb-8 transition-colors uppercase tracking-widest">
                     <ArrowLeft size={16} /> Back to Works
                 </Link>
-                <h1 className="font-display text-5xl font-bold mb-2 capitalize">{category}</h1>
-                <p className="text-warm-gray text-lg mb-12">{CATEGORY_LABELS[category || ''] || ''}</p>
+                <h1 className="font-display text-4xl md:text-5xl font-bold mb-2 capitalize text-white">{category}</h1>
+                <p className="text-white/60 text-lg mb-16">{CATEGORY_LABELS[category || ''] || ''}</p>
 
                 {projects.length === 0 ? (
-                    <div className="text-center py-20 text-warm-gray">
-                        <p className="text-lg mb-2">아직 등록된 프로젝트가 없습니다.</p>
+                    <div className="text-center py-32 text-white/30">
+                        <p className="text-lg font-light mb-2">아직 등록된 프로젝트가 없습니다.</p>
                         <p className="text-sm">관리자 페이지에서 프로젝트를 추가해 주세요.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                         {projects.map((p) => (
                             <div key={p.id} className="group cursor-pointer" onClick={() => openLightbox(p)}>
-                                <div className="aspect-[4/3] overflow-hidden rounded-sm bg-gray-200">
+                                <div className="aspect-[4/3] overflow-hidden rounded-sm bg-white/5 relative">
                                     <img src={getMediumUrl(p.image)} alt={p.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100" />
+
+                                    {/* Overlay on hover */}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                        <p className="text-gold uppercase tracking-widest text-xs font-semibold px-4 py-2 border border-gold/30 rounded-full backdrop-blur-sm">View Project</p>
+                                    </div>
                                 </div>
-                                <h3 className="mt-3 font-medium text-sm">{p.title}</h3>
-                                <p className="text-warm-gray text-xs">{p.description}</p>
-                                {p.images && p.images.length > 1 && (
+                                <h3 className="mt-4 font-medium text-lg text-white group-hover:text-gold transition-colors">{p.title}</h3>
+                                <p className="text-white/50 text-xs mt-1 uppercase tracking-wider">{p.category}</p>
+                                {/* {p.images && p.images.length > 1 && (
                                     <p className="text-xs text-gold mt-1">📷 {p.images.length}장</p>
-                                )}
+                                )} */}
                             </div>
                         ))}
                     </div>
