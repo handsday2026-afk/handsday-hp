@@ -37,7 +37,7 @@ const CONTACT_CHANNELS = [
 
 export default function RequestPage() {
     return (
-        <main className="min-h-screen pt-32 pb-20 px-8 bg-charcoal text-white">
+        <main className="min-h-screen pt-32 pb-20 px-8 page-enter bg-charcoal text-white">
             <div className="max-w-4xl mx-auto flex flex-col items-center">
                 {/* Header Section */}
                 <div className="text-center mb-16">

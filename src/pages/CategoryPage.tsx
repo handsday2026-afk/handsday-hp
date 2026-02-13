@@ -32,7 +32,7 @@ export default function CategoryPage() {
     }
 
     return (
-        <main className="min-h-screen pt-28 pb-20 px-8 bg-charcoal text-white">
+        <main className="min-h-screen pt-28 pb-20 px-8 page-enter bg-charcoal text-white">
             <div className="max-w-6xl mx-auto">
                 <Link to="/works" className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm mb-8 transition-colors uppercase tracking-widest">
                     <ArrowLeft size={16} /> Back to Works

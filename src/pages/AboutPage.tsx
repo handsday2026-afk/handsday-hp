@@ -1,6 +1,6 @@
 export default function AboutPage() {
     return (
-        <main className="min-h-screen pt-28 pb-20 bg-charcoal text-white">
+        <main className="min-h-screen pt-28 pb-20 page-enter bg-charcoal text-white">
             <section className="px-8 max-w-6xl mx-auto mb-20">
                 <h1 className="font-display text-5xl font-bold mb-6 text-white transform transition-all duration-700 ease-out translate-y-0 opacity-100">About Us</h1>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
