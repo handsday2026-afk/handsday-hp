@@ -8,17 +8,20 @@ import AboutPage from '@/pages/AboutPage'
 import RequestPage from '@/pages/RequestPage'
 import ContactPage from '@/pages/ContactPage'
 import AdminPage from '@/pages/AdminPage'
+import IntroPage from '@/pages/IntroPage'
 
 function App() {
     const location = useLocation()
     const isHome = location.pathname === '/'
+    const isIntro = location.pathname === '/intro'
     const isTransparent = isHome || location.pathname === '/works'
 
     return (
         <div className="app">
-            <Header transparent={isTransparent} />
+            {!isIntro && <Header transparent={isTransparent} />}
             <Routes>
                 <Route path="/" element={<HomePage />} />
+                <Route path="/intro" element={<IntroPage />} />
                 <Route path="/works" element={<WorksPage />} />
                 <Route path="/works/:category" element={<CategoryPage />} />
                 <Route path="/about" element={<AboutPage />} />
@@ -26,7 +29,7 @@ function App() {
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/admin" element={<AdminPage />} />
             </Routes>
-            {!isHome && <Footer />}
+            {!isHome && !isIntro && <Footer />}
         </div>
     )
 }
