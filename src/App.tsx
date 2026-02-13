@@ -12,16 +12,16 @@ import IntroPage from '@/pages/IntroPage'
 
 function App() {
     const location = useLocation()
-    const isHome = location.pathname === '/'
-    const isIntro = location.pathname === '/intro'
+    const isHome = location.pathname === '/home' // Changed from '/' to '/home'
+    const isIntro = location.pathname === '/'    // Changed from '/intro' to '/'
     const isTransparent = isHome || location.pathname.startsWith('/works') || location.pathname === '/about' || location.pathname === '/request' || location.pathname === '/contact'
 
     return (
         <div className="app">
             {!isIntro && <Header transparent={isTransparent} />}
             <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/intro" element={<IntroPage />} />
+                <Route path="/" element={<IntroPage />} />
+                <Route path="/home" element={<HomePage />} />
                 <Route path="/works" element={<WorksPage />} />
                 <Route path="/works/:category" element={<CategoryPage />} />
                 <Route path="/about" element={<AboutPage />} />

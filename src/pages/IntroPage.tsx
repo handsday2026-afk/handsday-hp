@@ -43,7 +43,7 @@ export default function IntroPage() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 1.5, duration: 1 }}
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/home")}
                     className="mt-16 pointer-events-auto px-10 py-3 border border-white/30 text-white text-sm tracking-[0.3em] uppercase hover:bg-white hover:text-black transition-all duration-500 backdrop-blur-sm"
                 >
                     Enter Space
