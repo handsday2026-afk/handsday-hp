@@ -32,7 +32,7 @@ export default function IntroPage() {
                     className="text-center"
                 >
                     <h1 className="text-white text-6xl md:text-8xl font-serif tracking-widest mb-4">
-                        HANDSDAY
+                        SPACE STORY SUYOIL
                     </h1>
                     <p className="text-warm-gray text-[10px] sm:text-lg md:text-xl font-light tracking-[0.5em] uppercase whitespace-nowrap">
                         Interior Architecture Studio
