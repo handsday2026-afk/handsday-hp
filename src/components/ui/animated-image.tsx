@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { useInView } from 'framer-motion';
@@ -8,12 +6,13 @@ import { AspectRatio } from '@/components/ui/aspect-ratio';
 interface AnimatedImageProps {
     alt: string;
     src: string;
+    blurSrc?: string;
     className?: string;
     ratio: number;
     onClick?: () => void;
 }
 
-export function AnimatedImage({ alt, src, className, ratio, onClick }: AnimatedImageProps) {
+export function AnimatedImage({ alt, src, blurSrc, className, ratio, onClick }: AnimatedImageProps) {
     const ref = React.useRef(null);
     const isInView = useInView(ref, { once: true, margin: "-50px" });
     const [isLoading, setIsLoading] = React.useState(true);
@@ -29,14 +28,24 @@ export function AnimatedImage({ alt, src, className, ratio, onClick }: AnimatedI
                 ratio={ratio}
                 className="bg-gray-800 relative w-full h-full"
             >
+                {/* LQIP 블러 플레이스홀더 */}
+                {blurSrc && isLoading && (
+                    <img
+                        src={blurSrc}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 w-full h-full object-cover blur-lg scale-110"
+                    />
+                )}
+
                 {!hasError ? (
                     <img
                         alt={alt}
                         src={src}
                         className={cn(
                             'block w-full h-full object-cover transition-all duration-700 ease-out',
-                            isLoading ? 'opacity-0 scale-105 blur-sm' : 'opacity-100 scale-100 blur-0',
-                            isInView ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0',
+                            isLoading ? 'opacity-0 scale-105' : 'opacity-100 scale-100',
+                            isInView ? 'translate-y-0' : 'translate-y-8 opacity-0',
                             'group-hover:scale-105'
                         )}
                         onLoad={() => setIsLoading(false)}

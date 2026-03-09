@@ -1,170 +1,196 @@
 /**
  * 이미지 최적화 유틸리티
- * 
- * 1. Supabase Storage Transform URL: 서버사이드에서 용량만 줄이고 원본 비율(구도) 유지
- * 2. 클라이언트 압축: 업로드 전 이미지를 WebP로 변환하고 크기를 제한
+ *
+ * Supabase Free 플랜 사용 → Transform URL 불가.
+ * 업로드 시점에 다중 크기 WebP를 생성하고, 표시 시 suffix 기반으로 URL을 결정한다.
+ *
+ * 파일 네이밍 규칙:
+ *   {id}.webp       ← 원본 (2000px, q0.82) — 라이트박스, 히어로
+ *   {id}_md.webp     ← 중간 (1200px, q0.80) — 카테고리 페이지
+ *   {id}_sm.webp     ← 소형 (600px, q0.75)  — 갤러리 썸네일
+ *   {id}_blur.webp   ← 초소형 (20px, q0.50)  — LQIP 블러 플레이스홀더
  */
 
 // ============================================================
-// 1. Supabase Storage Image Transformation (표시용)
+// 1. Suffix 기반 URL 생성 (표시용)
 // ============================================================
-// Supabase Storage URL 구조:
-//   원본: /storage/v1/object/public/bucket/path
-//   변환: /storage/v1/render/image/public/bucket/path?width=X&quality=Y
-//
-// ★ width만 지정하면 원본 비율을 유지한 채 크기만 줄어듭니다.
-//   height나 resize:'cover'를 지정하면 강제 크롭이 발생하므로 사용하지 않습니다.
 
-interface TransformOptions {
-    width?: number
-    quality?: number
-}
-
-/**
- * Supabase Storage URL에 이미지 변환 파라미터를 추가합니다.
- * width만 지정 → 원본 구도(비율) 유지, 용량만 줄임.
- * Supabase Pro 플랜에서만 작동. Free 플랜에서는 원본 URL을 그대로 반환.
- */
-export function getOptimizedUrl(url: string, options: TransformOptions = {}): string {
+/** 원본 URL에서 suffix variant URL을 생성한다. */
+function addSuffix(url: string, suffix: string): string {
     if (!url) return url
-
-    const { width, quality = 75 } = options
-
-    // Supabase Storage URL이 아닌 경우 원본 반환
-    if (!url.includes('/storage/v1/object/public/')) {
-        return url
-    }
-
-    const transformedUrl = url.replace(
-        '/storage/v1/object/public/',
-        '/storage/v1/render/image/public/'
-    )
-
-    const params = new URLSearchParams()
-    if (width) params.set('width', width.toString())
-    params.set('quality', quality.toString())
-
-    return `${transformedUrl}?${params.toString()}`
+    const dotIdx = url.lastIndexOf('.')
+    if (dotIdx === -1) return url
+    return `${url.slice(0, dotIdx)}${suffix}${url.slice(dotIdx)}`
 }
 
-/** 갤러리 썸네일용 (Works 페이지 그리드) */
-export function getThumbnailUrl(url: string): string {
-    return getOptimizedUrl(url, { width: 800, quality: 75 })
+/** 갤러리 썸네일용 (Works 페이지 그리드) — 600px */
+export function getSmallUrl(url: string): string {
+    return addSuffix(url, '_sm')
 }
 
-/** 카테고리 페이지, 중간 크기 */
+/** 카테고리 페이지, 중간 크기 — 1200px */
 export function getMediumUrl(url: string): string {
-    return getOptimizedUrl(url, { width: 1200, quality: 80 })
+    return addSuffix(url, '_md')
 }
 
-/** 라이트박스, 히어로 슬라이더 등 대형 표시용 */
+/** 라이트박스, 히어로 슬라이더 등 대형 표시용 — 원본 그대로 */
 export function getFullUrl(url: string): string {
-    return getOptimizedUrl(url, { width: 1920, quality: 85 })
+    return url
 }
 
-/** 관리자 페이지 썸네일 (아주 작게) */
+/** 관리자 페이지 썸네일 — 소형과 동일 */
 export function getAdminThumbUrl(url: string): string {
-    return getOptimizedUrl(url, { width: 300, quality: 65 })
+    return addSuffix(url, '_sm')
 }
 
+/** LQIP 블러 플레이스홀더용 — 20px 초소형 */
+export function getBlurUrl(url: string): string {
+    return addSuffix(url, '_blur')
+}
 
 // ============================================================
-// 2. Client-Side Image Compression (업로드용)
+// 2. Client-Side Image Compression & Multi-Size Generation
 // ============================================================
 
-/**
- * 이미지를 업로드 전에 클라이언트에서 압축합니다.
- * - 최대 폭/높이를 제한 (원본 비율 유지)
- * - WebP 포맷으로 변환 (용량 ~60% 절약)
- * - 품질 조정 가능
- * 
- * @param file - 원본 File 객체
- * @param maxDimension - 최대 허용 폭/높이 (기본: 2000px)
- * @param quality - WebP 품질 0~1 (기본: 0.82)
- * @returns 압축된 File 객체 (WebP)
- */
-export async function compressImage(
-    file: File,
-    maxDimension: number = 2000,
-    quality: number = 0.82
-): Promise<File> {
-    // 이미 작은 파일은 그대로 반환 (300KB 이하)
-    if (file.size <= 300 * 1024) {
-        return file
-    }
+interface ImageVariant {
+    suffix: string
+    maxDimension: number
+    quality: number
+}
 
-    return new Promise((resolve) => {
-        const img = new Image()
-        const reader = new FileReader()
+const VARIANTS: ImageVariant[] = [
+    { suffix: '',      maxDimension: 2000, quality: 0.82 },
+    { suffix: '_md',   maxDimension: 1200, quality: 0.80 },
+    { suffix: '_sm',   maxDimension: 600,  quality: 0.75 },
+    { suffix: '_blur', maxDimension: 20,   quality: 0.50 },
+]
 
-        reader.onload = (e) => {
-            img.onload = () => {
-                const canvas = document.createElement('canvas')
-                let { width, height } = img
+function resizeToWebP(
+    img: HTMLImageElement,
+    maxDimension: number,
+    quality: number
+): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
 
-                // 최대 크기 제한 (비율 유지 — 크롭 없음)
-                if (width > maxDimension || height > maxDimension) {
-                    if (width > height) {
-                        height = Math.round((height * maxDimension) / width)
-                        width = maxDimension
-                    } else {
-                        width = Math.round((width * maxDimension) / height)
-                        height = maxDimension
-                    }
-                }
-
-                canvas.width = width
-                canvas.height = height
-
-                const ctx = canvas.getContext('2d')!
-                ctx.drawImage(img, 0, 0, width, height)
-
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob && blob.size < file.size) {
-                            // 압축된 파일이 원본보다 작을 때만 사용
-                            const ext = file.name.split('.').slice(0, -1).join('.')
-                            const compressedFile = new File(
-                                [blob],
-                                `${ext}.webp`,
-                                { type: 'image/webp', lastModified: Date.now() }
-                            )
-                            console.log(
-                                `[이미지 최적화] ${file.name}: ${formatBytes(file.size)} → ${formatBytes(compressedFile.size)} (${Math.round((1 - compressedFile.size / file.size) * 100)}% 절약)`
-                            )
-                            resolve(compressedFile)
-                        } else {
-                            // 압축 효과가 없으면 원본 사용
-                            resolve(file)
-                        }
-                    },
-                    'image/webp',
-                    quality
-                )
+        if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+                height = Math.round((height * maxDimension) / width)
+                width = maxDimension
+            } else {
+                width = Math.round((width * maxDimension) / height)
+                height = maxDimension
             }
-            img.src = e.target?.result as string
         }
 
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return reject(new Error('Canvas 2D context unavailable'))
+        ctx.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+            (blob) => {
+                if (blob) resolve(blob)
+                else reject(new Error('toBlob returned null'))
+            },
+            'image/webp',
+            quality
+        )
+    })
+}
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+        const img = new Image()
+        const reader = new FileReader()
+        reader.onload = (e) => {
+            img.onload = () => resolve(img)
+            img.onerror = reject
+            img.src = e.target?.result as string
+        }
+        reader.onerror = reject
         reader.readAsDataURL(file)
     })
 }
 
-/**
- * 여러 이미지 파일을 일괄 압축합니다.
- */
-export async function compressImages(
-    files: File[],
-    maxDimension: number = 2000,
-    quality: number = 0.82
-): Promise<File[]> {
-    return Promise.all(
-        files.map(file => compressImage(file, maxDimension, quality))
-    )
+export interface GeneratedVariants {
+    /** suffix → File (suffix: '', '_md', '_sm', '_blur') */
+    files: Map<string, File>
+    /** 기본 파일명 (확장자 제외, 예: '1710000000-abc123') */
+    baseName: string
 }
 
-// 바이트 → 사람이 읽기 좋은 문자열
-function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes}B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+/**
+ * 1장의 이미지에서 4개의 크기 variant를 생성한다.
+ */
+export async function generateImageVariants(file: File): Promise<GeneratedVariants> {
+    const img = await loadImage(file)
+    const baseName = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+    const files = new Map<string, File>()
+
+    for (const variant of VARIANTS) {
+        const blob = await resizeToWebP(img, variant.maxDimension, variant.quality)
+        const fileName = `${baseName}${variant.suffix}.webp`
+        const variantFile = new File([blob], fileName, {
+            type: 'image/webp',
+            lastModified: Date.now(),
+        })
+        files.set(variant.suffix, variantFile)
+    }
+
+    return { files, baseName }
+}
+
+/**
+ * 여러 이미지 파일을 일괄로 variant 생성한다.
+ */
+export async function generateAllVariants(files: File[]): Promise<GeneratedVariants[]> {
+    return Promise.all(files.map(file => generateImageVariants(file)))
+}
+
+/** variant suffix 목록 (삭제 시 사용) */
+export const VARIANT_SUFFIXES = ['', '_md', '_sm', '_blur']
+
+// ============================================================
+// 3. 기존 이미지 마이그레이션 (URL → variant 생성)
+// ============================================================
+
+function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = url
+    })
+}
+
+/**
+ * 기존 원본 URL 이미지를 로드하여 _md, _sm, _blur variant만 생성한다.
+ * (원본은 이미 존재하므로 생성하지 않음)
+ */
+export async function generateMissingVariants(
+    url: string,
+    baseName: string
+): Promise<Map<string, File>> {
+    const img = await loadImageFromUrl(url)
+    const files = new Map<string, File>()
+
+    // 원본('')은 이미 존재하므로 _md, _sm, _blur만 생성
+    for (const variant of VARIANTS) {
+        if (variant.suffix === '') continue
+        const blob = await resizeToWebP(img, variant.maxDimension, variant.quality)
+        const fileName = `${baseName}${variant.suffix}.webp`
+        const variantFile = new File([blob], fileName, {
+            type: 'image/webp',
+            lastModified: Date.now(),
+        })
+        files.set(variant.suffix, variantFile)
+    }
+
+    return files
 }

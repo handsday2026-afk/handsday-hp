@@ -21,7 +21,7 @@ const CONTACT_CHANNELS = [
         icon: Printer,
         label: 'Fax',
         value: '0504.060.2606',
-        href: 'tel:05040602606',
+        href: '',
         bgClass: 'bg-white/10',
         iconColor: 'text-white/60',
     },
@@ -48,22 +48,28 @@ export default function RequestPage() {
 
                 {/* Contact Channels Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-3xl mb-20">
-                    {CONTACT_CHANNELS.map((ch) => (
-                        <a key={ch.label} href={ch.href}
-                            target={ch.label === 'KakaoTalk' ? '_blank' : undefined}
-                            rel={ch.label === 'KakaoTalk' ? 'noopener noreferrer' : undefined}
-                            className="group flex items-center gap-5 bg-white/5 p-6 rounded-sm border border-white/5 hover:bg-white/10 hover:border-gold/30 transition-all duration-300">
+                    {CONTACT_CHANNELS.map((ch) => {
+                        const Wrapper = ch.href ? 'a' : 'div'
+                        const linkProps = ch.href ? {
+                            href: ch.href,
+                            target: ch.label === 'KakaoTalk' ? '_blank' as const : undefined,
+                            rel: ch.label === 'KakaoTalk' ? 'noopener noreferrer' : undefined,
+                        } : {}
+                        return (
+                            <Wrapper key={ch.label} {...linkProps}
+                                className="group flex items-center gap-5 bg-white/5 p-6 rounded-sm border border-white/5 hover:bg-white/10 hover:border-gold/30 transition-all duration-300">
 
-                            <div className={`w-12 h-12 rounded-full ${ch.bgClass} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-lg`}>
-                                <ch.icon size={20} className={ch.iconColor} />
-                            </div>
+                                <div className={`w-12 h-12 rounded-full ${ch.bgClass} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-lg`}>
+                                    <ch.icon size={20} className={ch.iconColor} />
+                                </div>
 
-                            <div className="text-left">
-                                <p className="text-[10px] uppercase tracking-[3px] text-white/40 mb-1 font-medium group-hover:text-gold transition-colors">{ch.label}</p>
-                                <p className="font-medium text-white text-lg tracking-wide group-hover:translate-x-1 transition-transform">{ch.value}</p>
-                            </div>
-                        </a>
-                    ))}
+                                <div className="text-left">
+                                    <p className="text-[10px] uppercase tracking-[3px] text-white/40 mb-1 font-medium group-hover:text-gold transition-colors">{ch.label}</p>
+                                    <p className="font-medium text-white text-lg tracking-wide group-hover:translate-x-1 transition-transform">{ch.value}</p>
+                                </div>
+                            </Wrapper>
+                        )
+                    })}
                 </div>
 
                 {/* Call to Action Banner */}

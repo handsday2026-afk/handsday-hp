@@ -1,5 +1,3 @@
-"use client";
-
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef, useState, useEffect } from "react";
@@ -84,17 +82,25 @@ const fragmentShader = `
   }
 `;
 
+interface VideoPlaneProps {
+    src: string;
+    revealRadius: number;
+    waveSpeed: number;
+    waveFrequency: number;
+    waveAmplitude: number;
+    mouseRadius: number;
+    isMouseInCanvas: boolean;
+}
+
 function VideoPlane({
     src,
     revealRadius,
-    revealSoftness,
-    pixelSize,
     waveSpeed,
     waveFrequency,
     waveAmplitude,
     mouseRadius,
     isMouseInCanvas,
-}: any) {
+}: VideoPlaneProps) {
     const meshRef = useRef<THREE.Mesh>(null);
     const { pointer } = useThree();
     const mouseActiveRef = useRef(0);
@@ -209,17 +215,25 @@ function VideoPlane({
     );
 }
 
+interface RevealWaveVideoProps {
+    src: string;
+    revealRadius?: number;
+    waveSpeed?: number;
+    waveFrequency?: number;
+    waveAmplitude?: number;
+    mouseRadius?: number;
+    className?: string;
+}
+
 export const RevealWaveVideo = ({
     src,
-    revealRadius = 0.4, // Increased default radius
-    revealSoftness = 0.5,
-    pixelSize = 3,
+    revealRadius = 0.4,
     waveSpeed = 0.5,
     waveFrequency = 3.0,
     waveAmplitude = 0.2,
     mouseRadius = 0.2,
     className = "h-full w-full",
-}: any) => {
+}: RevealWaveVideoProps) => {
     const [isMouseInCanvas, setIsMouseInCanvas] = useState(false);
 
     return (
@@ -236,8 +250,6 @@ export const RevealWaveVideo = ({
                 <VideoPlane
                     src={src}
                     revealRadius={revealRadius}
-                    revealSoftness={revealSoftness}
-                    pixelSize={pixelSize}
                     waveSpeed={waveSpeed}
                     waveFrequency={waveFrequency}
                     waveAmplitude={waveAmplitude}

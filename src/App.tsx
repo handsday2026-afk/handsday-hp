@@ -12,9 +12,10 @@ import IntroPage from '@/pages/IntroPage'
 
 function App() {
     const location = useLocation()
-    const isHome = location.pathname === '/home' // Changed from '/' to '/home'
-    const isIntro = location.pathname === '/'    // Changed from '/intro' to '/'
-    const isTransparent = isHome || location.pathname.startsWith('/works') || location.pathname === '/about' || location.pathname === '/request' || location.pathname === '/contact'
+    const isHome = location.pathname === '/home'
+    const isIntro = location.pathname === '/'
+    const TRANSPARENT_PATHS = ['/home', '/works', '/about', '/request', '/contact']
+    const isTransparent = TRANSPARENT_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + '/'))
 
     return (
         <div className="app">

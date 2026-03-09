@@ -9,10 +9,15 @@
     --font-body: 'Montserrat', sans-serif;
 }
 
+:root {
+    --hero-info-height: 180px;
+    --hero-info-height-mobile: 140px;
+}
+
 body {
     font-family: var(--font-body);
     background-color: var(--color-charcoal);
-    color: var(--color-charcoal);
+    color: var(--color-bone);
     -webkit-font-smoothing: antialiased;
     margin: 0;
 }
@@ -94,7 +99,7 @@ html {
 .hero-info-inner {
     display: flex;
     width: 100%;
-    height: 180px;
+    height: var(--hero-info-height);
 }
 
 /* 좌측 텍스트 정보 (슬라이딩) */
@@ -110,7 +115,7 @@ html {
     top: 0;
     left: 0;
     width: 100%;
-    height: 180px;
+    height: var(--hero-info-height);
     display: flex;
     align-items: stretch;
     padding: 28px 36px;
@@ -192,7 +197,7 @@ html {
     top: 0;
     left: 0;
     width: 100%;
-    height: 180px;
+    height: var(--hero-info-height);
     overflow: hidden;
 }
 
@@ -233,13 +238,13 @@ html {
     }
 
     .hero-info-inner {
-        height: 140px;
+        height: var(--hero-info-height-mobile);
     }
 
     .hero-info-item {
         padding: 16px 20px;
         gap: 16px;
-        height: 140px;
+        height: var(--hero-info-height-mobile);
     }
 
     .hero-info-number {
@@ -255,7 +260,7 @@ html {
     }
 
     .hero-thumb-item {
-        height: 140px;
+        height: var(--hero-info-height-mobile);
     }
 }
 

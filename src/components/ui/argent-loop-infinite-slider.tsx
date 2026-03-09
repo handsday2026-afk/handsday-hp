@@ -36,19 +36,23 @@ const FALLBACK_DATA: ProjectData[] = [
     },
 ];
 
+function getInfoHeight(): number {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--hero-info-height').trim()
+    return parseInt(raw, 10) || 180
+}
+
 const CONFIG = {
     SCROLL_SPEED: 0.75,
     LERP_FACTOR: 0.05,
     BUFFER_SIZE: 5,
     MAX_VELOCITY: 150,
     SNAP_DURATION: 500,
-    INFO_HEIGHT: 180,
 };
 
 const lerp = (start: number, end: number, factor: number) =>
     start + (end - start) * factor;
 
-export function Component() {
+export function HeroSlider() {
     const navigate = useNavigate();
     const [projectData, setProjectData] = React.useState<ProjectData[]>(FALLBACK_DATA);
     const [activeIndex, setActiveIndex] = React.useState(0);
@@ -71,6 +75,8 @@ export function Component() {
     const thumbRef = React.useRef<Map<number, HTMLDivElement>>(new Map());
     const requestRef = React.useRef<number | undefined>(undefined);
     const renderedRange = React.useRef({ min: -CONFIG.BUFFER_SIZE, max: CONFIG.BUFFER_SIZE });
+    const lastIndexRef = React.useRef(0);
+    const infoHeightRef = React.useRef(180);
 
     // API에서 데이터 로드
     React.useEffect(() => {
@@ -132,7 +138,7 @@ export function Component() {
     // 핵심: 원본 참조 코드의 슬라이딩 방식 - 정보패널도 동기화 스크롤
     const updatePositions = () => {
         const s = state.current;
-        const infoScrollY = (s.currentY * CONFIG.INFO_HEIGHT) / s.projectHeight;
+        const infoScrollY = (s.currentY * infoHeightRef.current) / s.projectHeight;
 
         // 메인 프로젝트 이미지 위치 업데이트
         projectsRef.current.forEach((el, index) => {
@@ -143,16 +149,16 @@ export function Component() {
 
         // 정보 텍스트 위치 업데이트 (동기화 스크롤)
         infoRef.current.forEach((el, index) => {
-            const y = index * CONFIG.INFO_HEIGHT + infoScrollY;
+            const y = index * infoHeightRef.current + infoScrollY;
             el.style.transform = `translateY(${y}px)`;
         });
 
         // 썸네일 위치 업데이트 (동기화 스크롤)
         thumbRef.current.forEach((el, index) => {
-            const y = index * CONFIG.INFO_HEIGHT + infoScrollY;
+            const y = index * infoHeightRef.current + infoScrollY;
             el.style.transform = `translateY(${y}px)`;
             const img = el.querySelector("img");
-            if (img) updateParallax(img, infoScrollY, index, CONFIG.INFO_HEIGHT);
+            if (img) updateParallax(img, infoScrollY, index, infoHeightRef.current);
         });
     };
 
@@ -167,9 +173,12 @@ export function Component() {
         if (!s.isDragging) s.currentY += (s.targetY - s.currentY) * CONFIG.LERP_FACTOR;
         updatePositions();
 
-        // 현재 활성 인덱스 계산 (인디케이터용)
+        // 현재 활성 인덱스 계산 (값 변경 시에만 state 업데이트)
         const currentIndex = Math.round(-s.currentY / s.projectHeight);
-        setActiveIndex(currentIndex);
+        if (currentIndex !== lastIndexRef.current) {
+            lastIndexRef.current = currentIndex;
+            setActiveIndex(currentIndex);
+        }
 
         const min = currentIndex - CONFIG.BUFFER_SIZE;
         const max = currentIndex + CONFIG.BUFFER_SIZE;
@@ -181,6 +190,7 @@ export function Component() {
     };
 
     React.useEffect(() => {
+        infoHeightRef.current = getInfoHeight();
         state.current.projectHeight = window.innerHeight;
         const onWheel = (e: WheelEvent) => {
             e.preventDefault();
@@ -203,7 +213,7 @@ export function Component() {
             s.lastScrollTime = Date.now();
         };
         const onTouchEnd = () => { state.current.isDragging = false; };
-        const onResize = () => { state.current.projectHeight = window.innerHeight; };
+        const onResize = () => { state.current.projectHeight = window.innerHeight; infoHeightRef.current = getInfoHeight(); };
 
         window.addEventListener("wheel", onWheel, { passive: false });
         window.addEventListener("touchstart", onTouchStart);
@@ -238,10 +248,10 @@ export function Component() {
                 {indices.map((i) => {
                     const data = getProjectData(i);
                     return (
-                        <div key={i} className="project"
+                        <li key={i} className="project"
                             ref={(el) => { if (el) projectsRef.current.set(i, el); else projectsRef.current.delete(i); }}>
                             <img src={data.image} alt={data.title} />
-                        </div>
+                        </li>
                     );
                 })}
             </ul>

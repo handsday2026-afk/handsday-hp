@@ -1,30 +1,10 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { Menu, X, Instagram } from 'lucide-react'
+import { NaverIcon } from '@/components/ui/icons'
 
 interface HeaderProps {
     transparent?: boolean
-}
-
-// 네이버 'N' 로고 아이콘 컴포넌트 (Lucide 스타일)
-function NaverIcon({ size = 18, className = "" }: { size?: number, className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M17 2H7C4.2 2 2 4.2 2 7v10c0 2.8 2.2 5 5 5h10c2.8 0 5-2.2 5-5V7c0-2.8-2.2-5-5-5z" />
-            <path d="M8 17V7l8 10V7" />
-        </svg>
-    )
 }
 
 export default function Header({ transparent = false }: HeaderProps) {
@@ -34,13 +14,17 @@ export default function Header({ transparent = false }: HeaderProps) {
     // 화면 크기 변경 시 모바일 메뉴 닫기
     useEffect(() => {
         const handleResize = () => {
-            if (window.innerWidth >= 768) {
-                setIsOpen(false)
-            }
+            if (window.innerWidth >= 768) setIsOpen(false)
         }
         window.addEventListener('resize', handleResize)
         return () => window.removeEventListener('resize', handleResize)
     }, [])
+
+    // 모바일 메뉴 열림 시 body 스크롤 잠금
+    useEffect(() => {
+        document.body.style.overflow = isOpen ? 'hidden' : ''
+        return () => { document.body.style.overflow = '' }
+    }, [isOpen])
 
     const headerBg = isOpen
         ? 'bg-bone border-b border-gray-200'
@@ -61,7 +45,9 @@ export default function Header({ transparent = false }: HeaderProps) {
                 <nav className="hidden md:flex items-center gap-10">
                     <div className="relative -my-5 py-5"
                         onMouseEnter={() => setWorksOpen(true)}
-                        onMouseLeave={() => setWorksOpen(false)}>
+                        onMouseLeave={() => setWorksOpen(false)}
+                        onFocus={() => setWorksOpen(true)}
+                        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setWorksOpen(false) }}>
                         <Link to="/works" className={`nav-link ${transparent ? 'text-white/80 hover:text-white' : 'text-charcoal/60 hover:text-charcoal'}`}>
                             Works
                         </Link>

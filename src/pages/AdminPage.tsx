@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
-import { getProjects, createProject, deleteProject, updateProject, toggleProjectHero, adminLogin, type Project } from '@/lib/api'
+import { useState, useEffect, useRef } from 'react'
+import { getProjects, createProject, deleteProject, updateProject, toggleProjectHero, migrateExistingImages, type Project, type MigrationProgress } from '@/lib/api'
 import { getAdminThumbUrl } from '@/lib/image-utils'
-import { Upload, Trash2, LogIn, LogOut, Plus, Layers, ChevronLeft, ChevronRight, Edit3, X, Check, Star, StarOff, Filter, ImagePlus } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { Upload, Trash2, LogIn, LogOut, Plus, Layers, ChevronLeft, ChevronRight, Edit3, X, Check, Star, StarOff, Filter, ImagePlus, RefreshCw } from 'lucide-react'
 
 const PAGE_SIZE = 6
 const CATEGORIES = [
@@ -12,7 +13,9 @@ const CATEGORIES = [
 ] as const
 
 export default function AdminPage() {
-    const [isAuth, setIsAuth] = useState(!!localStorage.getItem('admin_token'))
+    const [isAuth, setIsAuth] = useState(false)
+    const [authLoading, setAuthLoading] = useState(true)
+    const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
 
     // Works
@@ -36,6 +39,30 @@ export default function AdminPage() {
 
     const [loading, setLoading] = useState(false)
     const [msg, setMsg] = useState('')
+    const objectUrlsRef = useRef<string[]>([])
+
+    // 이미지 마이그레이션
+    const [migrating, setMigrating] = useState(false)
+    const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null)
+
+    // Supabase Auth 세션 감시
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setIsAuth(!!session)
+            setAuthLoading(false)
+        })
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setIsAuth(!!session)
+        })
+        return () => subscription.unsubscribe()
+    }, [])
+
+    // cleanup object URLs on unmount
+    useEffect(() => {
+        return () => {
+            objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url))
+        }
+    }, [])
 
     // Category filter
     const [filterCategory, setFilterCategory] = useState<string>('all')
@@ -59,13 +86,11 @@ export default function AdminPage() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
-        const res = await adminLogin(password)
-        if (res.success) {
-            localStorage.setItem('admin_token', res.token || 'ok')
-            setIsAuth(true)
-            setMsg('') // 로그인 성공 시 메시지 초기화
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) {
+            setMsg('로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.')
         } else {
-            setMsg('비밀번호가 올바르지 않습니다.')
+            setMsg('')
         }
     }
 
@@ -172,9 +197,31 @@ export default function AdminPage() {
         loadProjects()
     }
 
-    const handleLogout = () => {
-        localStorage.removeItem('admin_token')
-        setIsAuth(false)
+    const handleLogout = async () => {
+        await supabase.auth.signOut()
+    }
+
+    const handleMigrate = async () => {
+        if (!confirm('기존 이미지의 최적화 variant(_md, _sm, _blur)를 일괄 생성합니다. 진행하시겠습니까?')) return
+        setMigrating(true)
+        setMigrationProgress(null)
+        try {
+            const result = await migrateExistingImages((progress) => {
+                setMigrationProgress(progress)
+            })
+            setMsg(`마이그레이션 완료: ${result.migrated}건 생성, ${result.skipped}건 건너뜀, ${result.failed}건 실패`)
+        } catch {
+            setMsg('마이그레이션 중 오류가 발생했습니다.')
+        } finally {
+            setMigrating(false)
+            setMigrationProgress(null)
+        }
+    }
+
+    const createTrackedUrl = (file: File): string => {
+        const url = URL.createObjectURL(file)
+        objectUrlsRef.current.push(url)
+        return url
     }
 
     const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,11 +231,22 @@ export default function AdminPage() {
         }
     }
 
+    if (authLoading) {
+        return (
+            <main className="pt-28 pb-20 px-8 flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gold"></div>
+            </main>
+        )
+    }
+
     if (!isAuth) {
         return (
             <main className="pt-28 pb-20 px-8 page-enter flex items-center justify-center min-h-screen">
                 <form onSubmit={handleLogin} className="w-full max-w-sm space-y-6">
                     <h1 className="font-display text-3xl font-bold text-center">Admin Login</h1>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                        placeholder="Email" required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                         placeholder="Password" required
                         className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
@@ -206,9 +264,16 @@ export default function AdminPage() {
             <div className="max-w-5xl mx-auto">
                 <div className="flex items-center justify-between mb-10">
                     <h1 className="font-display text-3xl font-bold">Admin Dashboard</h1>
-                    <button onClick={handleLogout} className="flex items-center gap-2 text-warm-gray hover:text-charcoal text-sm cursor-pointer border-none bg-transparent">
-                        <LogOut size={14} /> Logout
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleMigrate} disabled={migrating}
+                            className="flex items-center gap-2 text-warm-gray hover:text-gold text-xs cursor-pointer border border-gray-200 hover:border-gold bg-transparent px-3 py-1.5 rounded-sm transition-colors disabled:opacity-50 uppercase tracking-widest font-bold">
+                            <RefreshCw size={12} className={migrating ? 'animate-spin' : ''} />
+                            {migrating ? (migrationProgress ? `${migrationProgress.current}/${migrationProgress.total}` : '...') : '이미지 최적화'}
+                        </button>
+                        <button onClick={handleLogout} className="flex items-center gap-2 text-warm-gray hover:text-charcoal text-sm cursor-pointer border-none bg-transparent">
+                            <LogOut size={14} /> Logout
+                        </button>
+                    </div>
                 </div>
 
                 {/* ===== 히어로 슬라이더 관리 섹션 ===== */}
@@ -290,7 +355,7 @@ export default function AdminPage() {
                                     {files.map((f, i) => (
                                         <div key={i} onClick={() => setMainImageIndex(i)}
                                             className={`relative w-20 h-20 rounded-sm overflow-hidden border-2 cursor-pointer transition-all ${mainImageIndex === i ? 'border-gold shadow-md scale-105' : 'border-gray-200 opacity-60'}`}>
-                                            <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
+                                            <img src={createTrackedUrl(f)} alt="" className="w-full h-full object-cover" />
                                             {mainImageIndex === i && (
                                                 <div className="absolute top-0 left-0 bg-gold text-white text-[8px] px-1.5 py-0.5 font-bold uppercase tracking-tighter">Main</div>
                                             )}
@@ -397,7 +462,7 @@ export default function AdminPage() {
                                             <div className="grid grid-cols-4 gap-2">
                                                 {editNewFiles.map((file, i) => (
                                                     <div key={`new-${i}`} className="relative group rounded-sm overflow-hidden border-2 border-dashed border-green-400">
-                                                        <img src={URL.createObjectURL(file)} alt={`새 이미지 ${i + 1}`} className="w-full aspect-square object-cover" />
+                                                        <img src={createTrackedUrl(file)} alt={`새 이미지 ${i + 1}`} className="w-full aspect-square object-cover" />
                                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                                             <button onClick={() => handleEditRemoveNewFile(i)} title="제거"
                                                                 className="p-1 rounded-full bg-white/90 text-red-500 hover:bg-red-500 hover:text-white border-none cursor-pointer transition-colors">
@@ -451,7 +516,7 @@ export default function AdminPage() {
                                             </div>
                                             <p className="text-[11px] text-warm-gray line-clamp-2 leading-relaxed">{p.description}</p>
                                             {p.images && p.images.length > 1 && (
-                                                <p className="text-[9px] text-warm-gray/50 mt-1 uppercase font-bold tracking-tighter">📷 {p.images.length} images</p>
+                                                <p className="text-[9px] text-warm-gray/50 mt-1 uppercase font-bold tracking-tighter">{p.images.length} images</p>
                                             )}
                                         </div>
                                         <div className="flex flex-col gap-1 shrink-0">
