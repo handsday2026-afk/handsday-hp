@@ -17,7 +17,6 @@ export default function IntroPage() {
                         waveFrequency={1.5}
                         waveAmplitude={0.3}
                         revealRadius={0.4}
-                        pixelSize={2}
                         mouseRadius={0.3}
                     />
                 </Suspense>

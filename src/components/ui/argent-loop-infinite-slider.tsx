@@ -70,7 +70,7 @@ export function HeroSlider() {
         projectHeight: 0,
     });
 
-    const projectsRef = React.useRef<Map<number, HTMLDivElement>>(new Map());
+    const projectsRef = React.useRef<Map<number, HTMLLIElement>>(new Map());
     const infoRef = React.useRef<Map<number, HTMLDivElement>>(new Map());
     const thumbRef = React.useRef<Map<number, HTMLDivElement>>(new Map());
     const requestRef = React.useRef<number | undefined>(undefined);
