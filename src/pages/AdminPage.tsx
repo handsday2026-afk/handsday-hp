@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { getProjects, createProject, deleteProject, updateProject, toggleProjectHero, migrateExistingImages, type Project, type MigrationProgress } from '@/lib/api'
 import { getAdminThumbUrl } from '@/lib/image-utils'
-import { supabase } from '@/lib/supabase'
 import { Upload, Trash2, LogIn, LogOut, Plus, Layers, ChevronLeft, ChevronRight, Edit3, X, Check, Star, StarOff, Filter, ImagePlus, RefreshCw } from 'lucide-react'
 
 const PAGE_SIZE = 6
@@ -12,9 +11,10 @@ const CATEGORIES = [
     { key: 'residence', label: 'Residence' },
 ] as const
 
+const STORAGE_KEY = 'admin_auth'
+
 export default function AdminPage() {
-    const [isAuth, setIsAuth] = useState(false)
-    const [authLoading, setAuthLoading] = useState(true)
+    const [isAuth, setIsAuth] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
     const [password, setPassword] = useState('')
 
     // Works
@@ -44,18 +44,6 @@ export default function AdminPage() {
     const [migrating, setMigrating] = useState(false)
     const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null)
 
-    // Supabase Auth 세션 감시
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setIsAuth(!!session)
-            setAuthLoading(false)
-        })
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setIsAuth(!!session)
-        })
-        return () => subscription.unsubscribe()
-    }, [])
-
     // cleanup object URLs on unmount
     useEffect(() => {
         return () => {
@@ -83,18 +71,14 @@ export default function AdminPage() {
 
     const loadProjects = () => getProjects().then(setProjects)
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = (e: React.FormEvent) => {
         e.preventDefault()
-        const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string
-        if (!adminEmail) {
-            setMsg('서버 설정 오류: VITE_ADMIN_EMAIL이 설정되지 않았습니다.')
-            return
-        }
-        const { error } = await supabase.auth.signInWithPassword({ email: adminEmail, password })
-        if (error) {
-            setMsg('비밀번호가 올바르지 않습니다.')
-        } else {
+        if (password === import.meta.env.VITE_ADMIN_PASSWORD) {
+            localStorage.setItem(STORAGE_KEY, '1')
+            setIsAuth(true)
             setMsg('')
+        } else {
+            setMsg('비밀번호가 올바르지 않습니다.')
         }
     }
 
@@ -201,8 +185,9 @@ export default function AdminPage() {
         loadProjects()
     }
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut()
+    const handleLogout = () => {
+        localStorage.removeItem(STORAGE_KEY)
+        setIsAuth(false)
     }
 
     const handleMigrate = async () => {
@@ -233,14 +218,6 @@ export default function AdminPage() {
             setFiles(Array.from(e.target.files))
             setMainImageIndex(0)
         }
-    }
-
-    if (authLoading) {
-        return (
-            <main className="pt-28 pb-20 px-8 flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gold"></div>
-            </main>
-        )
     }
 
     if (!isAuth) {
