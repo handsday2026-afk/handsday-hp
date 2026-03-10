@@ -15,7 +15,6 @@ const CATEGORIES = [
 export default function AdminPage() {
     const [isAuth, setIsAuth] = useState(false)
     const [authLoading, setAuthLoading] = useState(true)
-    const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
 
     // Works
@@ -86,9 +85,14 @@ export default function AdminPage() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string
+        if (!adminEmail) {
+            setMsg('서버 설정 오류: VITE_ADMIN_EMAIL이 설정되지 않았습니다.')
+            return
+        }
+        const { error } = await supabase.auth.signInWithPassword({ email: adminEmail, password })
         if (error) {
-            setMsg('로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.')
+            setMsg('비밀번호가 올바르지 않습니다.')
         } else {
             setMsg('')
         }
@@ -244,9 +248,6 @@ export default function AdminPage() {
             <main className="pt-28 pb-20 px-8 page-enter flex items-center justify-center min-h-screen">
                 <form onSubmit={handleLogin} className="w-full max-w-sm space-y-6">
                     <h1 className="font-display text-3xl font-bold text-center">Admin Login</h1>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                        placeholder="Email" required
-                        className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                         placeholder="Password" required
                         className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
