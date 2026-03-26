@@ -18,6 +18,11 @@ export default function WorksPage() {
     const [lightbox, setLightbox] = useState<LightboxState | null>(null)
 
     useEffect(() => {
+        document.title = 'Works | HANDSDAY Interior Design Studio'
+        return () => { document.title = 'HANDSDAY | Premium Interior Design Studio' }
+    }, [])
+
+    useEffect(() => {
         async function fetchProjects() {
             try {
                 const data = await getProjects()
@@ -143,20 +148,21 @@ export default function WorksPage() {
                                 transition={{ duration: 0.4, delay: index * 0.05 }}
                                 className="w-full"
                             >
-                                <div
+                                <article
                                     className="group cursor-pointer relative"
                                     onClick={() => openLightbox(project)}
+                                    aria-label={`${project.title}, ${project.category} 프로젝트`}
                                 >
                                     <div className="relative overflow-hidden rounded-sm bg-gray-900 aspect-[4/3]">
                                         <AnimatedImage
                                             src={getSmallUrl(project.image)}
                                             blurSrc={getBlurUrl(project.image)}
-                                            alt={project.title}
+                                            alt={project.description ? `${project.title} - ${project.description}` : project.title}
                                             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 opacity-90 group-hover:opacity-100"
                                             ratio={4 / 3}
                                         />
 
-                                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 pt-12 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-6 pt-16 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
                                             <p className="text-[10px] items-center gap-2 mb-1 hidden group-hover:flex text-gold tracking-widest uppercase font-semibold">
                                                 <span>View Project</span>
                                             </p>
@@ -167,6 +173,11 @@ export default function WorksPage() {
                                                 <span>{project.category}</span>
                                                 <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">{project.year}</span>
                                             </div>
+                                            {project.description && (
+                                                <p className="text-[11px] text-white/40 group-hover:text-white/65 line-clamp-2 leading-relaxed mt-2 transition-colors duration-300">
+                                                    {project.description}
+                                                </p>
+                                            )}
                                         </div>
 
                                         {project.images && project.images.length > 1 && (
@@ -175,7 +186,7 @@ export default function WorksPage() {
                                             </span>
                                         )}
                                     </div>
-                                </div>
+                                </article>
                             </motion.div>
                         ))}
                     </AnimatePresence>

@@ -19,6 +19,8 @@ export default function CategoryPage() {
 
     useEffect(() => {
         if (category) {
+            const label = CATEGORY_LABELS[category] || category
+            document.title = `${label} | HANDSDAY Interior Design`
             setLoading(true)
             getProjects(category)
                 .then(setProjects)
@@ -26,6 +28,7 @@ export default function CategoryPage() {
                 .finally(() => setLoading(false))
         }
         setLightbox(null)
+        return () => { document.title = 'HANDSDAY | Premium Interior Design Studio' }
     }, [category])
 
     const openLightbox = (project: Project) => {
@@ -65,9 +68,9 @@ export default function CategoryPage() {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                         {projects.map((p) => (
-                            <div key={p.id} className="group cursor-pointer" onClick={() => openLightbox(p)}>
+                            <article key={p.id} className="group cursor-pointer" onClick={() => openLightbox(p)} aria-label={`${p.title}, ${p.category} 프로젝트`}>
                                 <div className="aspect-[4/3] overflow-hidden rounded-sm bg-white/5 relative">
-                                    <img src={getMediumUrl(p.image)} alt={p.title}
+                                    <img src={getMediumUrl(p.image)} alt={p.description ? `${p.title} - ${p.description}` : p.title}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100" />
 
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -76,7 +79,10 @@ export default function CategoryPage() {
                                 </div>
                                 <h3 className="mt-4 font-medium text-lg text-white group-hover:text-gold transition-colors">{p.title}</h3>
                                 <p className="text-white/50 text-xs mt-1 uppercase tracking-wider">{p.category}</p>
-                            </div>
+                                {p.description && (
+                                    <p className="text-white/45 text-xs mt-2 line-clamp-2 leading-relaxed">{p.description}</p>
+                                )}
+                            </article>
                         ))}
                     </div>
                 )}
