@@ -1,36 +1,24 @@
 /**
  * 이미지 최적화 유틸리티
  *
- * Supabase Free 플랜 사용 → Transform URL 불가.
- * 업로드 시점에 다중 크기 WebP를 생성하고, 표시 시 suffix 기반으로 URL을 결정한다.
- *
- * 파일 네이밍 규칙:
- *   {id}.webp       ← 원본 (2000px, q0.82) — 라이트박스, 히어로
- *   {id}_md.webp     ← 중간 (1200px, q0.80) — 카테고리 페이지
- *   {id}_sm.webp     ← 소형 (600px, q0.75)  — 갤러리 썸네일
- *   {id}_blur.webp   ← 초소형 (20px, q0.50)  — LQIP 블러 플레이스홀더
+ * PocketBase 내장 ?thumb=WxH 쿼리 파라미터로 온디맨드 리사이즈.
+ * PocketBase가 생성된 썸네일을 캐싱하므로 반복 요청은 빠름.
  */
 
 // ============================================================
-// 1. Suffix 기반 URL 생성 (표시용)
+// 1. PocketBase ?thumb 기반 URL 생성 (표시용)
 // ============================================================
-
-/** 원본 URL에서 suffix variant URL을 생성한다. */
-function addSuffix(url: string, suffix: string): string {
-    if (!url) return url
-    const dotIdx = url.lastIndexOf('.')
-    if (dotIdx === -1) return url
-    return `${url.slice(0, dotIdx)}${suffix}${url.slice(dotIdx)}`
-}
 
 /** 갤러리 썸네일용 (Works 페이지 그리드) — 600px */
 export function getSmallUrl(url: string): string {
-    return addSuffix(url, '_sm')
+    if (!url) return url
+    return `${url}?thumb=600x0`
 }
 
 /** 카테고리 페이지, 중간 크기 — 1200px */
 export function getMediumUrl(url: string): string {
-    return addSuffix(url, '_md')
+    if (!url) return url
+    return `${url}?thumb=1200x0`
 }
 
 /** 라이트박스, 히어로 슬라이더 등 대형 표시용 — 원본 그대로 */
@@ -40,12 +28,14 @@ export function getFullUrl(url: string): string {
 
 /** 관리자 페이지 썸네일 — 소형과 동일 */
 export function getAdminThumbUrl(url: string): string {
-    return addSuffix(url, '_sm')
+    if (!url) return url
+    return `${url}?thumb=600x0`
 }
 
 /** LQIP 블러 플레이스홀더용 — 20px 초소형 */
 export function getBlurUrl(url: string): string {
-    return addSuffix(url, '_blur')
+    if (!url) return url
+    return `${url}?thumb=20x0`
 }
 
 // ============================================================
