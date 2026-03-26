@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { pb } from './pocketbase'
 import { generateAllVariants, generateMissingVariants, VARIANT_SUFFIXES } from './image-utils'
 
 // ===== 타입 정의 =====
@@ -35,7 +35,7 @@ interface ProjectRow {
     images: string[] | null
     description: string | null
     is_hero: boolean | null
-    created_at: string
+    created: string
 }
 
 // ===== DB Row → 프론트엔드 타입 매핑 =====
@@ -49,49 +49,40 @@ function mapProject(row: ProjectRow): Project {
         images: row.images || [],
         description: row.description || '',
         isHero: !!row.is_hero,
-        createdAt: row.created_at,
+        createdAt: row.created,
     }
 }
 
 // ===== Projects CRUD =====
 
 export async function getProjects(category?: string): Promise<Project[]> {
-    let query = supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-    if (category) {
-        query = query.eq('category', category)
-    }
-
-    const { data, error } = await query
-    if (error || !data) return []
-    return (data as ProjectRow[]).map(mapProject)
+    const filter = category ? `category = "${category}"` : ''
+    const records = await pb.collection('projects').getFullList<ProjectRow>({
+        sort: '-created',
+        filter,
+    })
+    return records.map(mapProject)
 }
 
 /**
- * 이미지 파일 1장에 대해 4개 variant를 Supabase Storage에 업로드하고
- * 원본 URL을 반환한다.
+ * 이미지 4개 variant를 PocketBase project_images 컬렉션에 업로드하고
+ * 원본 파일의 공개 URL을 반환한다.
  */
 async function uploadImageVariants(variantFiles: Map<string, File>, baseName: string): Promise<string> {
-    let originalUrl = ''
+    const formData = new FormData()
+    formData.append('base_name', baseName)
 
     for (const [suffix, file] of variantFiles) {
-        const fileName = `${baseName}${suffix}.webp`
-        const { data, error } = await supabase.storage
-            .from('project-images')
-            .upload(fileName, file)
-
-        if (data && !error && suffix === '') {
-            const { data: urlData } = supabase.storage
-                .from('project-images')
-                .getPublicUrl(data.path)
-            originalUrl = urlData.publicUrl
-        }
+        const fieldName = suffix === '' ? 'original' : suffix.replace('_', '')
+        formData.append(fieldName, file)
     }
 
-    return originalUrl
+    const record = await pb.collection('project_images').create(formData)
+
+    // 원본 파일의 공개 URL 반환
+    const originalFile = record['original'] as string
+    if (!originalFile) return ''
+    return pb.files.getURL(record, originalFile)
 }
 
 export async function createProject(
@@ -108,7 +99,7 @@ export async function createProject(
     // 1. 다중 크기 variant 생성
     const allVariants = await generateAllVariants(imageFiles)
 
-    // 2. 모든 variant를 Supabase Storage에 업로드
+    // 2. 모든 variant를 PocketBase Storage에 업로드
     const imageUrls: string[] = []
     for (const variants of allVariants) {
         const url = await uploadImageVariants(variants.files, variants.baseName)
@@ -119,63 +110,52 @@ export async function createProject(
     const mainImage = imageUrls[projectData.mainImageIndex] || imageUrls[0] || ''
 
     // 4. DB에 삽입
-    const { data, error } = await supabase
-        .from('projects')
-        .insert({
-            title: projectData.title,
-            category: projectData.category,
-            year: projectData.year,
-            description: projectData.description,
-            image: mainImage,
-            images: imageUrls,
-            is_hero: projectData.isHero,
-        })
-        .select()
-        .single()
+    const record = await pb.collection('projects').create<ProjectRow>({
+        title: projectData.title,
+        category: projectData.category,
+        year: projectData.year,
+        description: projectData.description,
+        image: mainImage,
+        images: imageUrls,
+        is_hero: projectData.isHero,
+    })
 
-    if (error || !data) throw new Error('프로젝트 등록 실패')
-    return mapProject(data as ProjectRow)
+    return mapProject(record)
 }
 
 /**
- * URL에서 Storage 파일 경로(baseName)를 추출한다.
- * 예: .../project-images/1710000000-abc123.webp → 1710000000-abc123
+ * URL에서 project_images record ID와 파일명(baseName)을 추출한다.
+ * PocketBase URL 패턴: {pb_url}/api/files/project_images/{recordId}/{baseName}.webp
  */
-function extractBaseName(url: string): string {
-    const parts = url.split('/project-images/')
-    if (parts.length < 2) return ''
-    const fileName = parts[parts.length - 1].split('?')[0] // query string 제거
-    const dotIdx = fileName.lastIndexOf('.')
-    return dotIdx > 0 ? fileName.slice(0, dotIdx) : fileName
+function extractImageInfo(url: string): { recordId: string; baseName: string } | null {
+    const match = url.match(/\/api\/files\/project_images\/([^/]+)\/([^/?]+)\.webp/)
+    if (!match) return null
+    const dotIdx = match[2].lastIndexOf('.')
+    const baseName = dotIdx > 0 ? match[2].slice(0, dotIdx) : match[2]
+    return { recordId: match[1], baseName }
 }
 
 /**
- * 원본 URL 하나에 대해 모든 variant 파일 경로를 생성한다.
+ * 원본 URL 하나에 대해 project_images record ID를 반환한다.
+ * (삭제 시 record 전체를 지우면 variant 4개가 모두 삭제됨)
  */
-function getVariantPaths(url: string): string[] {
-    const baseName = extractBaseName(url)
-    if (!baseName) return []
-    return VARIANT_SUFFIXES.map(suffix => `${baseName}${suffix}.webp`)
+function getRecordId(url: string): string {
+    const info = extractImageInfo(url)
+    return info?.recordId || ''
 }
 
 export async function deleteProject(id: string): Promise<void> {
-    // 1. 프로젝트 이미지 경로 조회
-    const { data: project } = await supabase
-        .from('projects')
-        .select('images')
-        .eq('id', id)
-        .single()
+    // 1. 프로젝트 이미지 record ID 조회
+    const project = await pb.collection('projects').getOne<ProjectRow>(id)
 
-    // 2. Storage에서 모든 variant 삭제
+    // 2. project_images 레코드 삭제 (variant 4개 자동 삭제)
     if (project?.images && project.images.length > 0) {
-        const allPaths = (project.images as string[]).flatMap(getVariantPaths).filter(Boolean)
-        if (allPaths.length > 0) {
-            await supabase.storage.from('project-images').remove(allPaths)
-        }
+        const recordIds = [...new Set((project.images as string[]).map(getRecordId).filter(Boolean))]
+        await Promise.all(recordIds.map(rid => pb.collection('project_images').delete(rid).catch(() => null)))
     }
 
     // 3. DB에서 삭제
-    await supabase.from('projects').delete().eq('id', id)
+    await pb.collection('projects').delete(id)
 }
 
 export async function updateProject(
@@ -196,12 +176,10 @@ export async function updateProject(
 
     // === 이미지 수정 처리 ===
     if (options) {
-        // 1. 삭제할 이미지: 모든 variant를 Storage에서 제거
+        // 1. 삭제할 이미지: project_images 레코드 삭제
         if (options.removedImageUrls && options.removedImageUrls.length > 0) {
-            const allPaths = options.removedImageUrls.flatMap(getVariantPaths).filter(Boolean)
-            if (allPaths.length > 0) {
-                await supabase.storage.from('project-images').remove(allPaths)
-            }
+            const recordIds = [...new Set(options.removedImageUrls.map(getRecordId).filter(Boolean))]
+            await Promise.all(recordIds.map(rid => pb.collection('project_images').delete(rid).catch(() => null)))
         }
 
         // 2. 새 이미지 업로드 (다중 크기 variant 생성)
@@ -215,11 +193,7 @@ export async function updateProject(
         }
 
         // 3. 현재 프로젝트의 이미지 목록 조회
-        const { data: current } = await supabase
-            .from('projects')
-            .select('images, image')
-            .eq('id', id)
-            .single()
+        const current = await pb.collection('projects').getOne<ProjectRow>(id)
 
         if (current) {
             const currentImages: string[] = current.images || []
@@ -236,7 +210,7 @@ export async function updateProject(
             // 4. 대표 이미지 설정
             if (options.mainImageUrl) {
                 updateData.image = options.mainImageUrl
-            } else if (removedSet.has(current.image) && finalImages.length > 0) {
+            } else if (removedSet.has(current.image || '') && finalImages.length > 0) {
                 updateData.image = finalImages[0]
             } else if (finalImages.length === 0) {
                 updateData.image = ''
@@ -244,46 +218,26 @@ export async function updateProject(
         }
     }
 
-    const { data: result, error } = await supabase
-        .from('projects')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single()
-
-    if (error || !result) throw new Error('프로젝트 수정 실패')
-    return mapProject(result as ProjectRow)
+    const record = await pb.collection('projects').update<ProjectRow>(id, updateData)
+    return mapProject(record)
 }
 
 export async function toggleProjectHero(id: string): Promise<Project> {
-    const { data: current } = await supabase
-        .from('projects')
-        .select('is_hero')
-        .eq('id', id)
-        .single()
-
-    const { data, error } = await supabase
-        .from('projects')
-        .update({ is_hero: !current?.is_hero })
-        .eq('id', id)
-        .select()
-        .single()
-
-    if (error || !data) throw new Error('히어로 토글 실패')
-    return mapProject(data as ProjectRow)
+    const current = await pb.collection('projects').getOne<ProjectRow>(id)
+    const record = await pb.collection('projects').update<ProjectRow>(id, {
+        is_hero: !current?.is_hero,
+    })
+    return mapProject(record)
 }
 
 // ===== Hero Slider =====
 
 export async function getHeroItems(): Promise<HeroItem[]> {
-    const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('is_hero', true)
-        .order('created_at', { ascending: false })
-
-    if (error || !data) return []
-    return (data as ProjectRow[]).map(row => ({
+    const records = await pb.collection('projects').getFullList<ProjectRow>({
+        filter: 'is_hero = true',
+        sort: '-created',
+    })
+    return records.map(row => ({
         id: row.id,
         title: row.title,
         category: row.category,
@@ -291,7 +245,7 @@ export async function getHeroItems(): Promise<HeroItem[]> {
         description: row.description || '',
         image: row.image || '',
         projectId: row.id,
-        createdAt: row.created_at,
+        createdAt: row.created,
     }))
 }
 
@@ -305,7 +259,6 @@ export interface MigrationProgress {
 
 /**
  * 기존 프로젝트의 원본 이미지에서 _md, _sm, _blur variant를 일괄 생성한다.
- * onProgress 콜백으로 진행 상황을 보고한다.
  */
 export async function migrateExistingImages(
     onProgress?: (progress: MigrationProgress) => void
@@ -328,28 +281,21 @@ export async function migrateExistingImages(
         const { url, title } = allImages[i]
         onProgress?.({ total: allImages.length, current: i + 1, currentTitle: title })
 
-        const baseName = extractBaseName(url)
-        if (!baseName) { skipped++; continue }
+        const info = extractImageInfo(url)
+        if (!info) { skipped++; continue }
 
-        // _sm variant가 이미 존재하는지 확인
-        const smPath = `${baseName}_sm.webp`
-        const { data: existing } = await supabase.storage
-            .from('project-images')
-            .list('', { search: smPath })
-
-        if (existing && existing.length > 0) {
-            skipped++
-            continue
-        }
-
+        // sm variant가 이미 존재하는지 확인 (record의 sm 필드 확인)
         try {
-            const variantFiles = await generateMissingVariants(url, baseName)
+            const record = await pb.collection('project_images').getOne(info.recordId)
+            if (record['sm']) { skipped++; continue }
+
+            const variantFiles = await generateMissingVariants(url, info.baseName)
+            const formData = new FormData()
             for (const [suffix, file] of variantFiles) {
-                const fileName = `${baseName}${suffix}.webp`
-                await supabase.storage
-                    .from('project-images')
-                    .upload(fileName, file, { upsert: true })
+                const fieldName = suffix.replace('_', '')
+                formData.append(fieldName, file)
             }
+            await pb.collection('project_images').update(info.recordId, formData)
             migrated++
         } catch {
             failed++
@@ -358,3 +304,6 @@ export async function migrateExistingImages(
 
     return { migrated, skipped, failed }
 }
+
+// ===== 하위 호환: VARIANT_SUFFIXES 재export =====
+export { VARIANT_SUFFIXES }
