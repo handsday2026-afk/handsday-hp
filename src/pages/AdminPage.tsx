@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { getProjects, createProject, deleteProject, updateProject, toggleProjectHero, migrateExistingImages, type Project, type MigrationProgress } from '@/lib/api'
 import { getAdminThumbUrl } from '@/lib/image-utils'
 import { Upload, Trash2, LogIn, LogOut, Plus, Layers, ChevronLeft, ChevronRight, Edit3, X, Check, Star, StarOff, Filter, ImagePlus, RefreshCw } from 'lucide-react'
@@ -27,14 +27,14 @@ export default function AdminPage() {
     const [files, setFiles] = useState<File[]>([])
     const [mainImageIndex, setMainImageIndex] = useState(0)
 
-    // Edit mode
-    const [editingId, setEditingId] = useState<string | null>(null)
+    // Edit modal
+    const [editingProject, setEditingProject] = useState<Project | null>(null)
     const [editForm, setEditForm] = useState({ title: '', category: '', year: '', description: '', isHero: false })
-    // 이미지 편집 state
-    const [editImages, setEditImages] = useState<string[]>([])       // 현재 이미지 목록
-    const [editRemovedUrls, setEditRemovedUrls] = useState<string[]>([]) // 삭제 대상
-    const [editNewFiles, setEditNewFiles] = useState<File[]>([])     // 새로 추가할 파일
-    const [editMainImage, setEditMainImage] = useState<string>('')   // 대표 이미지 URL
+    const [editImages, setEditImages] = useState<string[]>([])
+    const [editRemovedUrls, setEditRemovedUrls] = useState<string[]>([])
+    const [editNewFiles, setEditNewFiles] = useState<File[]>([])
+    const [editMainImage, setEditMainImage] = useState<string>('')
+    const [editMsg, setEditMsg] = useState('')
 
     const [loading, setLoading] = useState(false)
     const [msg, setMsg] = useState('')
@@ -106,9 +106,9 @@ export default function AdminPage() {
         loadProjects()
     }
 
-    // 편집 모드
-    const startEdit = (p: Project) => {
-        setEditingId(p.id)
+    // 편집 모달
+    const openEditModal = (p: Project) => {
+        setEditingProject(p)
         setEditForm({
             title: p.title,
             category: p.category,
@@ -116,50 +116,53 @@ export default function AdminPage() {
             description: p.description || '',
             isHero: !!p.isHero,
         })
-        // 이미지 편집 초기화
         const imgs = p.images?.length > 0 ? [...p.images] : (p.image ? [p.image] : [])
         setEditImages(imgs)
         setEditRemovedUrls([])
         setEditNewFiles([])
-        setEditMainImage(p.image || (imgs[0] || ''))
+        setEditMainImage(p.image || imgs[0] || '')
+        setEditMsg('')
     }
 
-    const cancelEdit = () => {
-        setEditingId(null)
+    const closeEditModal = useCallback(() => {
+        setEditingProject(null)
         setEditRemovedUrls([])
         setEditNewFiles([])
-    }
+        setEditMsg('')
+    }, [])
 
-    // 편집 중 이미지 삭제
+    // ESC 키로 모달 닫기
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeEditModal() }
+        if (editingProject) window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [editingProject, closeEditModal])
+
     const handleEditRemoveImage = (url: string) => {
         setEditImages(prev => prev.filter(u => u !== url))
         setEditRemovedUrls(prev => [...prev, url])
-        // 대표 이미지가 삭제되면 남은 첫 번째로 변경
         if (editMainImage === url) {
             const remaining = editImages.filter(u => u !== url)
             setEditMainImage(remaining[0] || '')
         }
     }
 
-    // 편집 중 새 이미지 추가
     const handleEditAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setEditNewFiles(prev => [...prev, ...Array.from(e.target.files!)])
-        }
+        if (e.target.files) setEditNewFiles(prev => [...prev, ...Array.from(e.target.files!)])
     }
 
-    // 편집 중 새 추가 파일 제거
     const handleEditRemoveNewFile = (index: number) => {
         setEditNewFiles(prev => prev.filter((_, i) => i !== index))
     }
 
     const saveEdit = async () => {
-        if (!editingId) return
+        if (!editingProject) return
         setLoading(true)
+        setEditMsg('')
         try {
             const hasImageChanges = editRemovedUrls.length > 0 || editNewFiles.length > 0
             await updateProject(
-                editingId,
+                editingProject.id,
                 editForm,
                 hasImageChanges ? {
                     removedImageUrls: editRemovedUrls,
@@ -167,13 +170,11 @@ export default function AdminPage() {
                     mainImageUrl: editMainImage || undefined,
                 } : undefined
             )
-            setEditingId(null)
-            setEditRemovedUrls([])
-            setEditNewFiles([])
+            closeEditModal()
             setMsg('프로젝트가 수정되었습니다!')
             loadProjects()
         } catch {
-            setMsg('수정 중 오류가 발생했습니다.')
+            setEditMsg('수정 중 오류가 발생했습니다.')
         } finally {
             setLoading(false)
         }
@@ -238,6 +239,7 @@ export default function AdminPage() {
     }
 
     return (
+        <>
         <main className="pt-28 pb-20 px-8 page-enter">
             <div className="max-w-5xl mx-auto">
                 <div className="flex items-center justify-between mb-10">
@@ -380,150 +382,50 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     {pagedProjects.map(p => (
                         <div key={p.id} className="bg-white p-4 rounded-sm border border-gray-100 relative group">
-                            {/* 편집 모드 */}
-                            {editingId === p.id ? (
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[10px] uppercase tracking-widest text-gold font-bold">편집 모드</span>
-                                        <button onClick={cancelEdit} className="text-warm-gray hover:text-red-500 cursor-pointer border-none bg-transparent">
-                                            <X size={16} />
-                                        </button>
-                                    </div>
-                                    <input type="text" value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-                                        placeholder="제목"
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold" />
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold">
-                                            <option value="medical">Medical</option>
-                                            <option value="commercial">Commercial</option>
-                                            <option value="residence">Residence</option>
-                                        </select>
-                                        <input type="text" value={editForm.year} onChange={e => setEditForm({ ...editForm, year: e.target.value })}
-                                            placeholder="연도"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold" />
-                                    </div>
-                                    <textarea value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                                        rows={2} placeholder="설명"
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold resize-none" />
-
-                                    {/* === 이미지 관리 섹션 === */}
-                                    <div className="space-y-2">
-                                        <span className="text-[10px] uppercase tracking-widest text-warm-gray font-bold">이미지 관리</span>
-                                        {/* 기존 이미지 목록 */}
-                                        {editImages.length > 0 && (
-                                            <div className="grid grid-cols-4 gap-2">
-                                                {editImages.map((url, i) => (
-                                                    <div key={i} className={`relative group rounded-sm overflow-hidden border-2 ${editMainImage === url ? 'border-gold' : 'border-gray-200'
-                                                        }`}>
-                                                        <img src={url} alt={`이미지 ${i + 1}`} className="w-full aspect-square object-cover" />
-                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
-                                                            <button onClick={() => setEditMainImage(url)} title="대표 이미지로 설정"
-                                                                className={`p-1 rounded-full border-none cursor-pointer transition-colors ${editMainImage === url ? 'bg-gold text-white' : 'bg-white/90 text-charcoal hover:bg-gold hover:text-white'
-                                                                    }`}>
-                                                                <Star size={12} />
-                                                            </button>
-                                                            <button onClick={() => handleEditRemoveImage(url)} title="삭제"
-                                                                className="p-1 rounded-full bg-white/90 text-red-500 hover:bg-red-500 hover:text-white border-none cursor-pointer transition-colors">
-                                                                <X size={12} />
-                                                            </button>
-                                                        </div>
-                                                        {editMainImage === url && (
-                                                            <div className="absolute top-0.5 left-0.5 bg-gold text-white text-[8px] px-1 py-0.5 rounded-sm font-bold">대표</div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {/* 새 이미지 추가 */}
-                                        {editNewFiles.length > 0 && (
-                                            <div className="grid grid-cols-4 gap-2">
-                                                {editNewFiles.map((file, i) => (
-                                                    <div key={`new-${i}`} className="relative group rounded-sm overflow-hidden border-2 border-dashed border-green-400">
-                                                        <img src={createTrackedUrl(file)} alt={`새 이미지 ${i + 1}`} className="w-full aspect-square object-cover" />
-                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                                            <button onClick={() => handleEditRemoveNewFile(i)} title="제거"
-                                                                className="p-1 rounded-full bg-white/90 text-red-500 hover:bg-red-500 hover:text-white border-none cursor-pointer transition-colors">
-                                                                <X size={12} />
-                                                            </button>
-                                                        </div>
-                                                        <div className="absolute top-0.5 left-0.5 bg-green-500 text-white text-[8px] px-1 py-0.5 rounded-sm font-bold">NEW</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <label className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-gray-300 rounded-sm text-xs text-warm-gray hover:border-gold hover:text-gold cursor-pointer transition-colors">
-                                            <ImagePlus size={14} />
-                                            이미지 추가
-                                            <input type="file" multiple accept="image/*" onChange={handleEditAddFiles} className="hidden" />
-                                        </label>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <input type="checkbox" checked={editForm.isHero} onChange={e => setEditForm({ ...editForm, isHero: e.target.checked })}
-                                            className="w-3.5 h-3.5 accent-gold cursor-pointer" />
-                                        <span className="text-xs text-charcoal">히어로 슬라이더 노출</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={saveEdit}
-                                            className="flex-1 bg-gold text-white py-2 text-[10px] uppercase tracking-widest rounded-sm cursor-pointer border-none font-bold flex items-center justify-center gap-1 hover:bg-gold/90 transition-colors">
-                                            <Check size={12} /> 저장
-                                        </button>
-                                        <button onClick={cancelEdit}
-                                            className="flex-1 bg-gray-100 text-warm-gray py-2 text-[10px] uppercase tracking-widest rounded-sm cursor-pointer border-none font-bold flex items-center justify-center gap-1 hover:bg-gray-200 transition-colors">
-                                            <X size={12} /> 취소
-                                        </button>
-                                    </div>
+                            {p.isHero && (
+                                <div className="absolute top-2 right-12 bg-gold/10 text-gold text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest border border-gold/20 flex items-center gap-1">
+                                    <Layers size={8} /> Hero
                                 </div>
-                            ) : (
-                                /* 보기 모드 */
-                                <>
-                                    {p.isHero && (
-                                        <div className="absolute top-2 right-12 bg-gold/10 text-gold text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest border border-gold/20 flex items-center gap-1">
-                                            <Layers size={8} /> Hero
-                                        </div>
-                                    )}
-                                    <div className="flex gap-4">
-                                        <img src={getAdminThumbUrl(p.image)} alt={p.title} className="w-20 h-20 object-cover rounded-sm shrink-0 border border-gray-100" />
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-medium text-sm truncate">{p.title}</h3>
-                                            <div className="flex gap-2 items-center text-[10px] text-gold uppercase tracking-widest font-bold mb-1">
-                                                <span>{p.category}</span>
-                                                <span className="text-warm-gray/30">|</span>
-                                                <span className="text-warm-gray">{p.year}</span>
-                                            </div>
-                                            <p className="text-[11px] text-warm-gray line-clamp-2 leading-relaxed">{p.description}</p>
-                                            {p.images && p.images.length > 1 && (
-                                                <p className="text-[9px] text-warm-gray/50 mt-1 uppercase font-bold tracking-tighter">{p.images.length} images</p>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-col gap-1 shrink-0">
-                                            <button onClick={() => handleToggleHero(p.id)}
-                                                title={p.isHero ? '히어로 해제' : '히어로 등록'}
-                                                className={`w-7 h-7 flex items-center justify-center rounded-sm cursor-pointer border transition-colors ${p.isHero
-                                                    ? 'bg-gold/10 text-gold border-gold/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200'
-                                                    : 'bg-gray-50 text-warm-gray/40 border-gray-200 hover:bg-gold/10 hover:text-gold hover:border-gold/20'
-                                                    }`}>
-                                                {p.isHero ? <Star size={12} /> : <StarOff size={12} />}
-                                            </button>
-                                            <button onClick={() => startEdit(p)}
-                                                className="w-7 h-7 flex items-center justify-center rounded-sm text-warm-gray hover:text-charcoal cursor-pointer border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
-                                                <Edit3 size={12} />
-                                            </button>
-                                            <button onClick={() => handleDeleteProject(p.id)}
-                                                className="w-7 h-7 flex items-center justify-center rounded-sm text-warm-gray hover:text-red-500 cursor-pointer border border-gray-200 bg-white hover:bg-red-50 hover:border-red-200 transition-colors">
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
+                            )}
+                            <div className="flex gap-4">
+                                <img src={getAdminThumbUrl(p.image)} alt={p.title} className="w-20 h-20 object-cover rounded-sm shrink-0 border border-gray-100" />
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-medium text-sm truncate">{p.title}</h3>
+                                    <div className="flex gap-2 items-center text-[10px] text-gold uppercase tracking-widest font-bold mb-1">
+                                        <span>{p.category}</span>
+                                        <span className="text-warm-gray/30">|</span>
+                                        <span className="text-warm-gray">{p.year}</span>
                                     </div>
+                                    <p className="text-[11px] text-warm-gray line-clamp-2 leading-relaxed">{p.description}</p>
                                     {p.images && p.images.length > 1 && (
-                                        <div className="flex gap-1 mt-3 overflow-x-auto pb-1 invisible group-hover:visible transition-all">
-                                            {p.images.map((img, i) => (
-                                                <img key={i} src={img} alt="" className={`w-10 h-10 object-cover rounded-sm shrink-0 border ${img === p.image ? 'border-gold' : 'border-gray-100 opacity-60'}`} />
-                                            ))}
-                                        </div>
+                                        <p className="text-[9px] text-warm-gray/50 mt-1 uppercase font-bold tracking-tighter">{p.images.length} images</p>
                                     )}
-                                </>
+                                </div>
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <button onClick={() => handleToggleHero(p.id)}
+                                        title={p.isHero ? '히어로 해제' : '히어로 등록'}
+                                        className={`w-7 h-7 flex items-center justify-center rounded-sm cursor-pointer border transition-colors ${p.isHero
+                                            ? 'bg-gold/10 text-gold border-gold/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200'
+                                            : 'bg-gray-50 text-warm-gray/40 border-gray-200 hover:bg-gold/10 hover:text-gold hover:border-gold/20'
+                                            }`}>
+                                        {p.isHero ? <Star size={12} /> : <StarOff size={12} />}
+                                    </button>
+                                    <button onClick={() => openEditModal(p)}
+                                        className="w-7 h-7 flex items-center justify-center rounded-sm text-warm-gray hover:text-charcoal cursor-pointer border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
+                                        <Edit3 size={12} />
+                                    </button>
+                                    <button onClick={() => handleDeleteProject(p.id)}
+                                        className="w-7 h-7 flex items-center justify-center rounded-sm text-warm-gray hover:text-red-500 cursor-pointer border border-gray-200 bg-white hover:bg-red-50 hover:border-red-200 transition-colors">
+                                        <Trash2 size={12} />
+                                    </button>
+                                </div>
+                            </div>
+                            {p.images && p.images.length > 1 && (
+                                <div className="flex gap-1 mt-3 overflow-x-auto pb-1 invisible group-hover:visible transition-all">
+                                    {p.images.map((img, i) => (
+                                        <img key={i} src={getAdminThumbUrl(img)} alt="" className={`w-10 h-10 object-cover rounded-sm shrink-0 border ${img === p.image ? 'border-gold' : 'border-gray-100 opacity-60'}`} />
+                                    ))}
+                                </div>
                             )}
                         </div>
                     ))}
@@ -547,5 +449,126 @@ export default function AdminPage() {
                 )}
             </div>
         </main>
+
+        {/* ===== 편집 모달 ===== */}
+        {editingProject && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                {/* 배경 오버레이 */}
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeEditModal} />
+
+                {/* 모달 본체 */}
+                <div className="relative bg-white rounded-sm shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    {/* 헤더 */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+                        <span className="text-[10px] uppercase tracking-[3px] text-gold font-bold flex items-center gap-2">
+                            <Edit3 size={12} /> 프로젝트 편집
+                        </span>
+                        <button onClick={closeEditModal} className="text-warm-gray hover:text-charcoal cursor-pointer border-none bg-transparent transition-colors">
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    {/* 편집 폼 */}
+                    <div className="px-6 py-5 space-y-4">
+                        <input type="text" value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                            placeholder="프로젝트 제목"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold" />
+                        <div className="grid grid-cols-2 gap-4">
+                            <select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                                className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold">
+                                <option value="medical">Medical</option>
+                                <option value="commercial">Commercial</option>
+                                <option value="residence">Residence</option>
+                            </select>
+                            <input type="text" value={editForm.year} onChange={e => setEditForm({ ...editForm, year: e.target.value })}
+                                placeholder="연도"
+                                className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold" />
+                        </div>
+                        <textarea value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                            rows={3} placeholder="설명"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold resize-none" />
+
+                        {/* 이미지 관리 */}
+                        <div className="space-y-3">
+                            <p className="text-[10px] uppercase tracking-[3px] text-warm-gray font-bold">이미지 관리</p>
+
+                            {/* 기존 이미지 */}
+                            {editImages.length > 0 && (
+                                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                    {editImages.map((url, i) => (
+                                        <div key={i} className={`relative rounded-sm overflow-hidden border-2 ${editMainImage === url ? 'border-gold' : 'border-gray-200'}`}>
+                                            <img src={getAdminThumbUrl(url)} alt={`이미지 ${i + 1}`} className="w-full aspect-square object-cover" />
+                                            {/* 대표 배지 */}
+                                            {editMainImage === url && (
+                                                <div className="absolute top-0.5 left-0.5 bg-gold text-white text-[8px] px-1 py-0.5 rounded-sm font-bold">대표</div>
+                                            )}
+                                            {/* 컨트롤 버튼 — 항상 표시 */}
+                                            <div className="absolute bottom-0 inset-x-0 flex justify-center gap-1 bg-black/40 py-1">
+                                                <button onClick={() => setEditMainImage(url)} title="대표 이미지로 설정"
+                                                    className={`p-1 rounded-full border-none cursor-pointer transition-colors ${editMainImage === url ? 'bg-gold text-white' : 'bg-white/90 text-charcoal hover:bg-gold hover:text-white'}`}>
+                                                    <Star size={10} />
+                                                </button>
+                                                <button onClick={() => handleEditRemoveImage(url)} title="삭제"
+                                                    className="p-1 rounded-full bg-white/90 text-red-500 hover:bg-red-500 hover:text-white border-none cursor-pointer transition-colors">
+                                                    <X size={10} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* 새로 추가된 이미지 */}
+                            {editNewFiles.length > 0 && (
+                                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                    {editNewFiles.map((file, i) => (
+                                        <div key={`new-${i}`} className="relative rounded-sm overflow-hidden border-2 border-dashed border-green-400">
+                                            <img src={createTrackedUrl(file)} alt={`새 이미지 ${i + 1}`} className="w-full aspect-square object-cover" />
+                                            <div className="absolute top-0.5 left-0.5 bg-green-500 text-white text-[8px] px-1 py-0.5 rounded-sm font-bold">NEW</div>
+                                            <div className="absolute bottom-0 inset-x-0 flex justify-center bg-black/40 py-1">
+                                                <button onClick={() => handleEditRemoveNewFile(i)} title="제거"
+                                                    className="p-1 rounded-full bg-white/90 text-red-500 hover:bg-red-500 hover:text-white border-none cursor-pointer transition-colors">
+                                                    <X size={10} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <label className="flex items-center gap-2 px-4 py-2.5 border border-dashed border-gray-300 rounded-sm text-xs text-warm-gray hover:border-gold hover:text-gold cursor-pointer transition-colors">
+                                <ImagePlus size={14} />
+                                이미지 추가
+                                <input type="file" multiple accept="image/*" onChange={handleEditAddFiles} className="hidden" />
+                            </label>
+                        </div>
+
+                        <div className="flex items-center gap-2 py-1">
+                            <input type="checkbox" id="editIsHero" checked={editForm.isHero} onChange={e => setEditForm({ ...editForm, isHero: e.target.checked })}
+                                className="w-4 h-4 accent-gold cursor-pointer" />
+                            <label htmlFor="editIsHero" className="text-sm text-charcoal cursor-pointer">메인 히어로 슬라이더에 노출</label>
+                        </div>
+
+                        {/* 결과 메시지 */}
+                        {editMsg && (
+                            <p className={`text-xs ${editMsg.includes('오류') ? 'text-red-500' : 'text-green-600'}`}>{editMsg}</p>
+                        )}
+
+                        {/* 액션 버튼 */}
+                        <div className="flex gap-3 pt-1">
+                            <button onClick={saveEdit} disabled={loading}
+                                className="flex-1 bg-gold text-white py-3 text-[10px] uppercase tracking-[3px] rounded-sm cursor-pointer border-none font-bold flex items-center justify-center gap-2 hover:bg-gold/90 transition-colors disabled:opacity-50">
+                                <Check size={13} /> {loading ? '저장 중...' : '저장'}
+                            </button>
+                            <button onClick={closeEditModal}
+                                className="flex-1 bg-gray-100 text-warm-gray py-3 text-[10px] uppercase tracking-[3px] rounded-sm cursor-pointer border-none font-bold flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors">
+                                <X size={13} /> 취소
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+    </>
     )
 }
