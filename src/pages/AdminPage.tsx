@@ -160,7 +160,7 @@ export default function AdminPage() {
         setLoading(true)
         setEditMsg('')
         try {
-            const hasImageChanges = editRemovedUrls.length > 0 || editNewFiles.length > 0
+            const hasImageChanges = editRemovedUrls.length > 0 || editNewFiles.length > 0 || editMainImage !== editingProject.image
             await updateProject(
                 editingProject.id,
                 editForm,
