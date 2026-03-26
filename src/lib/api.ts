@@ -58,7 +58,7 @@ function mapProject(row: ProjectRow): Project {
 export async function getProjects(category?: string): Promise<Project[]> {
     const filter = category ? `category = "${category}"` : ''
     const records = await pb.collection('projects').getFullList<ProjectRow>({
-        sort: '-created',
+        sort: '-id',
         filter,
     })
     return records.map(mapProject)
@@ -235,7 +235,7 @@ export async function toggleProjectHero(id: string): Promise<Project> {
 export async function getHeroItems(): Promise<HeroItem[]> {
     const records = await pb.collection('projects').getFullList<ProjectRow>({
         filter: 'is_hero = true',
-        sort: '-created',
+        sort: '-id',
     })
     return records.map(row => ({
         id: row.id,
