@@ -291,22 +291,22 @@ export default function AdminPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <input type="text" value={title} onChange={e => setTitle(e.target.value)}
                                 placeholder="프로젝트 제목" required
-                                className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
+                                className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold" />
                             <div className="grid grid-cols-2 gap-4">
                                 <select value={category} onChange={e => setCategory(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold">
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold">
                                     <option value="medical">Medical</option>
                                     <option value="commercial">Commercial</option>
                                     <option value="residence">Residence</option>
                                 </select>
                                 <input type="text" value={year} onChange={e => setYear(e.target.value)}
                                     placeholder="연도" required
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold" />
                             </div>
                         </div>
                         <textarea value={description} onChange={e => setDescription(e.target.value)}
                             rows={3} placeholder="설명"
-                            className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold resize-none" />
+                            className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold resize-none" />
 
                         <div className="flex items-center gap-2 py-2">
                             <input type="checkbox" id="isHero" checked={isHero} onChange={e => setIsHero(e.target.checked)}
@@ -391,21 +391,21 @@ export default function AdminPage() {
                                     </div>
                                     <input type="text" value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })}
                                         placeholder="제목"
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold" />
                                     <div className="grid grid-cols-2 gap-3">
                                         <select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold">
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold">
                                             <option value="medical">Medical</option>
                                             <option value="commercial">Commercial</option>
                                             <option value="residence">Residence</option>
                                         </select>
                                         <input type="text" value={editForm.year} onChange={e => setEditForm({ ...editForm, year: e.target.value })}
                                             placeholder="연도"
-                                            className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold" />
                                     </div>
                                     <textarea value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}
                                         rows={2} placeholder="설명"
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold resize-none" />
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm text-gray-900 focus:outline-none focus:border-gold resize-none" />
 
                                     {/* === 이미지 관리 섹션 === */}
                                     <div className="space-y-2">
