@@ -61,5 +61,16 @@ export default defineConfig(({ mode }) => {
             port: 5173,
             // proxy 제거됨 - Supabase는 클라이언트에서 직접 연결
         },
+        build: {
+            rollupOptions: {
+                output: {
+                    manualChunks: {
+                        'vendor-three': ['three'],
+                        'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+                        'vendor-pb': ['pocketbase'],
+                    },
+                },
+            },
+        },
     }
 })
