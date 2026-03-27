@@ -9,33 +9,49 @@
 // 1. PocketBase ?thumb 기반 URL 생성 (표시용)
 // ============================================================
 
+const PB_URL = import.meta.env.VITE_PB_URL
+
+/**
+ * DB에 저장된 URL의 호스트를 현재 VITE_PB_URL로 교체한다.
+ * 구 빌드에서 내부 IP(192.168.0.252:8090)로 저장된 URL을
+ * 외부 도메인(api.xn--9p4b25f5ta.kr)으로 변환하기 위해 필요.
+ */
+function normalizeUrl(url: string): string {
+    if (!url || !PB_URL) return url
+    const match = url.match(/\/api\/files\/.+/)
+    if (!match) return url
+    // ?thumb 파라미터가 붙어 있으면 경로 부분만 추출
+    const path = match[0].split('?')[0]
+    return `${PB_URL}${path}`
+}
+
 /** 갤러리 썸네일용 (Works 페이지 그리드) — 600px */
 export function getSmallUrl(url: string): string {
     if (!url) return url
-    return `${url}?thumb=600x0`
+    return `${normalizeUrl(url)}?thumb=600x0`
 }
 
 /** 카테고리 페이지, 중간 크기 — 1200px */
 export function getMediumUrl(url: string): string {
     if (!url) return url
-    return `${url}?thumb=1200x0`
+    return `${normalizeUrl(url)}?thumb=1200x0`
 }
 
 /** 라이트박스, 히어로 슬라이더 등 대형 표시용 — 원본 그대로 */
 export function getFullUrl(url: string): string {
-    return url
+    return normalizeUrl(url)
 }
 
 /** 관리자 페이지 썸네일 — 소형과 동일 */
 export function getAdminThumbUrl(url: string): string {
     if (!url) return url
-    return `${url}?thumb=600x0`
+    return `${normalizeUrl(url)}?thumb=600x0`
 }
 
 /** LQIP 블러 플레이스홀더용 — 20px 초소형 */
 export function getBlurUrl(url: string): string {
     if (!url) return url
-    return `${url}?thumb=20x0`
+    return `${normalizeUrl(url)}?thumb=20x0`
 }
 
 // ============================================================
