@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { getProjects, createProject, deleteProject, updateProject, toggleProjectHero, migrateExistingImages, type Project, type MigrationProgress } from '@/lib/api'
 import { getAdminThumbUrl } from '@/lib/image-utils'
 import { Upload, Trash2, LogIn, LogOut, Plus, Layers, ChevronLeft, ChevronRight, Edit3, X, Check, Star, StarOff, Filter, ImagePlus, RefreshCw } from 'lucide-react'
+import { pb } from '@/lib/pocketbase'
 
 const PAGE_SIZE = 6
 const CATEGORIES = [
@@ -11,10 +12,9 @@ const CATEGORIES = [
     { key: 'residence', label: 'Residence' },
 ] as const
 
-const STORAGE_KEY = 'admin_auth'
-
 export default function AdminPage() {
-    const [isAuth, setIsAuth] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
+    const [isAuth, setIsAuth] = useState(() => pb.authStore.isValid)
+    const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
 
     // Works
@@ -71,14 +71,14 @@ export default function AdminPage() {
 
     const loadProjects = () => getProjects().then(setProjects)
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (password === import.meta.env.VITE_ADMIN_PASSWORD) {
-            localStorage.setItem(STORAGE_KEY, '1')
+        try {
+            await pb.collection('_superusers').authWithPassword(email, password)
             setIsAuth(true)
             setMsg('')
-        } else {
-            setMsg('비밀번호가 올바르지 않습니다.')
+        } catch {
+            setMsg('이메일 또는 비밀번호가 올바르지 않습니다.')
         }
     }
 
@@ -187,7 +187,7 @@ export default function AdminPage() {
     }
 
     const handleLogout = () => {
-        localStorage.removeItem(STORAGE_KEY)
+        pb.authStore.clear()
         setIsAuth(false)
     }
 
@@ -226,6 +226,9 @@ export default function AdminPage() {
             <main className="pt-28 pb-20 px-8 page-enter flex items-center justify-center min-h-screen">
                 <form onSubmit={handleLogin} className="w-full max-w-sm space-y-6">
                     <h1 className="font-display text-3xl font-bold text-center">Admin Login</h1>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                        placeholder="Email" required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                         placeholder="Password" required
                         className="w-full px-4 py-3 border border-gray-200 rounded-sm text-sm focus:outline-none focus:border-gold" />
