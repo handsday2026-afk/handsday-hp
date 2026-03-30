@@ -30,7 +30,7 @@ export default function IntroPage() {
                     transition={{ duration: 1.5, ease: "easeOut" }}
                     className="text-center"
                 >
-                    <h1 className="text-white text-6xl md:text-8xl font-serif tracking-widest mb-4">
+                    <h1 className="text-white text-6xl md:text-8xl tracking-widest mb-4" style={{ fontFamily: 'var(--font-dongle)' }}>
                         SPACE STORY SUYOIL
                     </h1>
                     <p className="text-warm-gray text-[10px] sm:text-lg md:text-xl font-light tracking-[0.5em] uppercase whitespace-nowrap">
