@@ -7,7 +7,7 @@ export default function Footer() {
         <footer className="bg-charcoal text-white/60 py-16 px-8">
             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
                 <div>
-                    <h3 className="font-display text-white text-xl font-bold tracking-widest mb-4">HANDSDAY</h3>
+                    <img src="/logo.png" alt="수요일 Space Story" className="h-14 w-auto object-contain mb-4" />
                     <p className="text-sm leading-relaxed">공간에 가치를 담다.<br />프리미엄 인테리어 디자인 스튜디오</p>
                 </div>
                 <div>
