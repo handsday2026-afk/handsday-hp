@@ -4,8 +4,8 @@ const CONTACT_CHANNELS = [
     {
         icon: MessageSquare,
         label: 'KakaoTalk',
-        value: '@handsday',
-        href: 'https://pf.kakao.com/_handsday',
+        value: '카톡상담',
+        href: 'https://pf.kakao.com/_TyQuX',
         bgClass: 'bg-[#FEE500]',
         iconColor: 'text-[#3C1E1E]',
     },
@@ -83,7 +83,7 @@ export default function RequestPage() {
                             최적의 인테리어 솔루션을 제안해 드립니다.
                         </p>
 
-                        <a href="https://pf.kakao.com/_handsday" target="_blank" rel="noopener noreferrer"
+                        <a href="https://pf.kakao.com/_TyQuX" target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-3 text-gold text-xs uppercase tracking-[3px] border border-gold/30 px-6 py-3 rounded-full hover:bg-gold hover:text-charcoal transition-all duration-300">
                             <MessageSquare size={14} />
                             <span>Inquire via KakaoTalk</span>
