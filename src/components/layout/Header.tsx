@@ -37,9 +37,9 @@ export default function Header({ transparent = false }: HeaderProps) {
     return (
         <header className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${headerBg}`}>
             <div className="flex items-center justify-between px-8 py-5">
-                <Link to="/home" className={`font-display text-2xl font-bold tracking-[3px] ${transparent && !isOpen ? 'text-white' : 'text-charcoal'
+                <Link to="/home" className={`font-display text-2xl font-black tracking-[3px] ${transparent && !isOpen ? 'text-white' : 'text-charcoal'
                     }`}>
-                    HANDSDAY
+                    수요일
                 </Link>
 
                 <nav className="hidden md:flex items-center gap-10">

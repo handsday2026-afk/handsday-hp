@@ -1,4 +1,169 @@
-# HANDSDAY 프로젝트 개선 계획서
+# Works 썸네일 Description 표시 & SEO 개선 계획서
+
+> 작성일: 2026-03-26
+
+## 현황 분석
+
+### 현재 썸네일 오버레이 구조 (WorksPage.tsx:159-170)
+```
+[gradient overlay]
+  "View Project"  ← hover 시만 보임
+  [title]         ← 항상 보임, hover 시 gold 색상
+  [category] [year] ← year는 hover 시만 보임
+```
+
+### 문제
+- `description` 필드는 DB에 저장되고 fetch되지만 카드에서 전혀 표시 안 됨
+- SEO 관점에서 이미지 alt text만으론 크롤러가 프로젝트 내용을 파악하기 어려움
+
+---
+
+## 구현 계획
+
+### 변경 파일
+1. `src/pages/WorksPage.tsx` — 메인 변경 대상
+2. `src/pages/CategoryPage.tsx` — 같은 카드 패턴이면 동일 적용 (확인 후 결정)
+
+---
+
+### Phase 1: 썸네일에 description 표시
+
+#### 디자인 방향: "항상 보이되, hover 시 선명하게"
+- description을 기본 상태에서 희미하게(`text-white/40`) 표시 → hover 시 밝아짐(`text-white/65`)
+- `display: none`이 아닌 opacity 기반 → Google 크롤러가 항상 텍스트 인식 가능
+- `line-clamp-2`로 최대 2줄까지만 표시
+
+#### overlay 변경 내용
+```tsx
+// 현재: gradient 높이 p-6 pt-12
+// 변경: pt-16으로 늘려 description 공간 확보, gradient 어두움도 약간 강화
+
+<div className="absolute inset-x-0 bottom-0
+  bg-gradient-to-t from-black/85 via-black/45 to-transparent
+  p-6 pt-16
+  translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+
+  <p className="... hidden group-hover:flex ...">View Project</p>
+  <h3 ...>{project.title}</h3>
+  <div className="flex items-center justify-between ...">
+    <span>{project.category}</span>
+    <span className="opacity-0 group-hover:opacity-100 ...">{project.year}</span>
+  </div>
+
+  {/* ↓ 신규 추가 */}
+  {project.description && (
+    <p className="text-[11px] text-white/40 group-hover:text-white/65
+      line-clamp-2 leading-relaxed mt-2
+      transition-colors duration-300">
+      {project.description}
+    </p>
+  )}
+</div>
+```
+
+#### 조건부 처리
+- `{project.description && (...)}` — description이 없는 프로젝트는 빈 공간 없이 처리
+- 기존 프로젝트들이 description 없어도 레이아웃 무너지지 않음
+
+---
+
+### Phase 2: 시맨틱 HTML 개선 (SEO)
+
+#### 이미지 alt text 강화
+```tsx
+// 현재
+alt={project.title}
+
+// 변경: description이 있으면 포함
+alt={project.description
+  ? `${project.title} - ${project.description}`
+  : project.title}
+```
+→ Google 이미지 검색에서 더 풍부한 컨텍스트 제공
+
+#### 카드 래퍼를 시맨틱 태그로 변경
+```tsx
+// 현재: <div className="group cursor-pointer relative" onClick={...}>
+// 변경:
+<article
+  className="group cursor-pointer relative"
+  onClick={() => openLightbox(project)}
+  aria-label={`${project.title}, ${project.category} 프로젝트`}
+>
+```
+→ `<article>` 태그는 크롤러에게 "독립적인 콘텐츠 단위"임을 명시
+
+---
+
+### Phase 3: 페이지 메타 정보 개선 (선택적)
+
+현재 Works 페이지에 `<title>`, `<meta name="description">` 설정 여부 확인 후 결정.
+없다면 `document.title`을 동적으로 설정하거나 Vite의 index.html / vite-plugin-html 등으로 개선 가능.
+→ 이 부분은 별도 이슈로 분리하거나 이번에 같이 다룰지 확인 필요.
+
+---
+
+## 예상 시각적 변화
+
+### 기본 상태 (hover 없음)
+```
+┌─────────────────────────────┐
+│                             │
+│         [이미지]             │
+│                             │
+│─────────────────────────────│ ← gradient 시작
+│  title                      │
+│  MEDICAL              2026  │ ← year는 hover 시만
+│  조은장내과 인테리어 시공을..  │ ← description (희미하게)
+└─────────────────────────────┘
+```
+
+### hover 상태
+```
+┌─────────────────────────────┐
+│                             │
+│         [이미지] (scale 1.05)│
+│                             │
+│─────────────────────────────│
+│  VIEW PROJECT               │
+│  title (gold)               │
+│  MEDICAL              2026  │ ← year 나타남
+│  조은장내과 인테리어 시공을   │ ← description (선명하게)
+│  위한 공간 설계...           │
+└─────────────────────────────┘
+```
+
+---
+
+## 트레이드오프
+
+| 항목 | 현재 | 변경 후 |
+|------|------|---------|
+| 이미지 가시 영역 | 더 큼 | 오버레이가 약 15% 더 높아짐 |
+| 텍스트 정보량 | title + category | + description (2줄) |
+| SEO 인덱싱 | 제목/카테고리만 | 설명 텍스트까지 인덱싱 |
+| description 없는 프로젝트 | 영향 없음 | 조건부 렌더링으로 영향 없음 |
+
+---
+
+## 변경 범위 요약
+
+- **필수**: `WorksPage.tsx` overlay 수정 (description 추가 + gradient 조정)
+- **권장**: alt text 강화, `<article>` 시맨틱 태그
+- **선택**: CategoryPage.tsx 동일 적용 여부, 페이지 meta 태그 개선
+
+---
+
+## 승인 전 확인 사항
+
+1. description을 "항상 희미하게 표시 + hover 시 선명"으로 하는 방향에 동의하시나요?
+   (대안: hover 시에만 보이게 할 수도 있음)
+2. CategoryPage에도 같은 변경을 적용할까요?
+3. Phase 3 (페이지 meta 태그)를 이번 작업에 포함할까요?
+
+---
+
+# HANDSDAY 프로젝트 개선 계획서 (이전 내용)
 
 > 작성일: 2026-03-09
 > 기반: research.md 분석 결과

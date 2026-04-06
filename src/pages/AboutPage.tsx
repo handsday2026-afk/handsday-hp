@@ -19,7 +19,7 @@ export default function AboutPage() {
                                 <p className="text-xs uppercase tracking-[3px] text-white/40 mt-1">Projects</p>
                             </div>
                             <div>
-                                <p className="font-display text-4xl font-bold text-gold">12</p>
+                                <p className="font-display text-4xl font-bold text-gold">23</p>
                                 <p className="text-xs uppercase tracking-[3px] text-white/40 mt-1">Years</p>
                             </div>
                             <div>
