@@ -112,10 +112,13 @@ export function HeroSlider() {
         if (!img) return;
         if (!img.dataset.parallaxCurrent) img.dataset.parallaxCurrent = "0";
         let current = parseFloat(img.dataset.parallaxCurrent);
-        const target = (-scroll - index * height) * 0.2;
+        const isMobile = window.innerWidth <= 768;
+        const parallaxStrength = isMobile ? 0.05 : 0.2;
+        const scaleValue = isMobile ? 1.05 : 1.5;
+        const target = (-scroll - index * height) * parallaxStrength;
         current = lerp(current, target, 0.1);
         if (Math.abs(current - target) > 0.01) {
-            img.style.transform = `translateY(${current}px) scale(1.5)`;
+            img.style.transform = `translateY(${current}px) scale(${scaleValue})`;
             img.dataset.parallaxCurrent = current.toString();
         }
     };
