@@ -234,6 +234,12 @@ html {
 }
 
 @media (max-width: 768px) {
+    /* 모바일: 패럴랙스 overshoot 최소화 → 이미지 더 많이 노출 */
+    .project img {
+        top: -5%;
+        height: 110%;
+    }
+
     .hero-info-panel {
         width: 92vw;
         bottom: 3%;
