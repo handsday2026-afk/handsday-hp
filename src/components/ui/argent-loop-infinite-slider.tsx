@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { getHeroItems, type HeroItem } from "@/lib/api";
+import { getMediumUrl } from "@/lib/image-utils";
 
 interface ProjectData {
     id?: string;
@@ -85,7 +86,7 @@ export function HeroSlider() {
                 setProjectData(items.map(h => ({
                     id: h.projectId,
                     title: h.title,
-                    image: h.image,
+                    image: getMediumUrl(h.image),
                     category: h.category,
                     year: h.year,
                     description: h.description,
